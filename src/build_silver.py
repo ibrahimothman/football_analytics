@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import argparse
 import json
 from pathlib import Path
@@ -18,6 +19,9 @@ SOURCE_WIDTH = 80
 
 TARGET_LENGTH = 105
 TARGET_WIDTH = 68
+
+GOAL_X = 105
+GOAL_Y = 34
 
 
 def normalize_x(value: float | None) -> float | None:
@@ -83,6 +87,76 @@ def get_end_location(
 
     return None   
 
+def is_completed_pass(
+    event_type: str,
+    outcome: str | None,
+) -> bool:
+    """Return whether a pass was completed."""
+
+    return event_type == "Pass" and pd.isna(outcome)    
+
+
+def distance_to_goal(
+    x: float | None,
+    y: float | None,
+) -> float | None:
+    """Calculate Euclidean distance to opponent goal centre."""
+
+    if pd.isna(x) or pd.isna(y):
+        return None
+
+    return math.sqrt(
+        (GOAL_X - x) ** 2
+        + (GOAL_Y - y) ** 2
+    )
+
+def calculate_progression(
+    start_x: float | None,
+    start_y: float | None,
+    end_x: float | None,
+    end_y: float | None,
+) -> tuple[float | None, float | None]:
+
+    start_distance = distance_to_goal(
+        start_x,
+        start_y,
+    )
+
+    end_distance = distance_to_goal(
+        end_x,
+        end_y,
+    )
+
+    if (
+        start_distance is None
+        or end_distance is None
+        or start_distance == 0
+    ):
+        return None, None
+
+    distance_gained = (
+        start_distance - end_distance
+    )
+
+    progress_ratio = (
+        distance_gained / start_distance
+    )
+
+    return distance_gained, progress_ratio
+
+def is_progressive_pass(
+    is_completed: bool,
+    progress_ratio: float | None,
+) -> bool:
+
+    if not is_completed:
+        return False
+
+    if progress_ratio is None:
+        return False
+
+    return progress_ratio >= 0.25    
+
 def bronze_to_silver_row(
     row: pd.Series,
 ) -> dict:
@@ -128,6 +202,19 @@ def bronze_to_silver_row(
             "statsbomb_xg",
         )
 
+    start_x = normalize_x(row["location_x_raw"])
+    start_y = normalize_y(row["location_y_raw"])
+    end_x = normalize_x(end_x_raw)
+    end_y = normalize_y(end_y_raw) 
+
+    completed_pass = is_completed_pass(event_type, outcome)
+
+    distance_gained, progress_ratio = calculate_progression(start_x, start_y, end_x, end_y)
+    progressive_pass = is_progressive_pass(completed_pass, progress_ratio)
+
+
+    
+
     return {
         "match_id": row["match_id"],
         "event_id": row["event_id"],
@@ -147,15 +234,11 @@ def bronze_to_silver_row(
 
         "possession_id": row["possession"],
 
-        "start_x": normalize_x(
-            row["location_x_raw"]
-        ),
-        "start_y": normalize_y(
-            row["location_y_raw"]
-        ),
+        "start_x": start_x,
+        "start_y": start_y,
 
-        "end_x": normalize_x(end_x_raw),
-        "end_y": normalize_y(end_y_raw),
+        "end_x": end_x,
+        "end_y": end_y,
 
         "outcome": outcome,
         "shot_xg": shot_xg,
@@ -164,10 +247,39 @@ def bronze_to_silver_row(
         "is_carry": event_type == "Carry",
         "is_shot": event_type == "Shot",
 
+        "is_completed_pass": completed_pass,
+        "is_progressive_pass": progressive_pass,
+        "progress_ratio": progress_ratio,
+        "progress_toward_goal_m": distance_gained,
+
         "source_version": row["source_version"],
         "file_hash": row["file_hash"],
     }  
 
+def check_attacking_direction_using_shots(
+    df: pd.DataFrame,
+) -> None:
+
+    shots = df[df["is_shot"]].copy()
+
+    summary = (
+        shots
+        .groupby(
+            ["team_name", "period"]
+        )["start_x"]
+        .median()
+    )
+
+    suspicious = summary[
+        summary < 60
+    ]
+
+    if not suspicious.empty:
+        print(
+            "WARNING: possible coordinate "
+            "orientation issue:"
+        )
+        print(suspicious)
 
 def validate_silver(
     df: pd.DataFrame,
@@ -225,6 +337,39 @@ def validate_silver(
             "Silver contains invalid shot xG."
         )       
 
+    invalid_completed = (
+    df["is_completed_pass"]
+    & ~df["is_pass"]
+    )
+
+    if invalid_completed.any():
+        raise ValueError(
+            "Non-pass events marked as completed passes."
+        )
+
+    invalid_progressive = (
+    df["is_progressive_pass"]
+    & ~df["is_completed_pass"]
+    )
+
+    if invalid_progressive.any():
+        raise ValueError(
+            "Incomplete passes marked as progressive."
+        )
+
+    invalid_progress_ratio = (
+    df.loc[
+        df["is_progressive_pass"],
+        "progress_ratio",
+    ]
+    < 0.25
+    )
+
+    if invalid_progress_ratio.any():
+        raise ValueError(
+            "Progressive pass below configured threshold."
+        )            
+
 def find_bronze_file(
     match_id: int,
 ) -> Path:
@@ -268,6 +413,7 @@ def build_silver(
     silver_df = pd.DataFrame(rows)
 
     validate_silver(silver_df)
+    check_attacking_direction_using_shots(silver_df)
 
     match_directory = (
         SILVER_DIR
