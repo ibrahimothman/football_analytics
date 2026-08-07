@@ -5,76 +5,82 @@ df = pd.read_parquet(
 )
 
 passes = df[
-    df["event_type"] == "Pass"
-]
+    # order the shots by shot_xg descending
+    (df["event_type"] == "Shot")
+].sort_values(
+    by="shot_xg",
+    ascending=False
+)
 
 print(
     passes[
         [
-            "player_name",
-            "start_x",
-            "start_y",
-            "end_x",
-            "end_y",
-            "outcome",
-        ]
-    ].head(20)
-)
-
-progressive = df[
-    df["is_progressive_pass"]
-]
-
-print(
-    progressive[
-        [
-            "minute",
             "team_name",
             "player_name",
             "start_x",
             "start_y",
             "end_x",
             "end_y",
-            "progress_toward_goal_m",
-            "progress_ratio",
+            "outcome",
+            "shot_xg",
         ]
-    ]
-    .head(30)
-    .to_string(index=False)
+    ].head(20)
 )
 
+# progressive = df[
+#     df["is_progressive_pass"]
+# ]
 
-print(
-    df[
-        df["is_progressive_pass"]
-    ]
-    .groupby("team_name")
-    .size()
-)
+# print(
+#     progressive[
+#         [
+#             "minute",
+#             "team_name",
+#             "player_name",
+#             "start_x",
+#             "start_y",
+#             "end_x",
+#             "end_y",
+#             "progress_toward_goal_m",
+#             "progress_ratio",
+#         ]
+#     ]
+#     .head(30)
+#     .to_string(index=False)
+# )
 
-print(
-    df[
-        df["is_progressive_pass"]
-    ]
-    .groupby("player_name")
-    .size()
-    .sort_values(ascending=False)
-    .head(10)
-)
 
-# inspecting start_x for shots to validate the attcking direction
+# print(
+#     df[
+#         df["is_progressive_pass"]
+#     ]
+#     .groupby("team_name")
+#     .size()
+# )
 
-shot_summary = (
-    df[df["is_shot"]]
-    .groupby(
-        ["team_name", "period"]
-    )
-    .agg(
-        shots=("event_id", "count"),
-        avg_shot_x=("start_x", "mean"),
-        min_shot_x=("start_x", "min"),
-        max_shot_x=("start_x", "max"),
-    )
-)
+# print(
+#     df[
+#         df["is_progressive_pass"]
+#     ]
+#     .groupby("player_name")
+#     .size()
+#     .sort_values(ascending=False)
+#     .head(10)
+# )
 
-print(shot_summary)
+# # inspecting start_x for shots to validate the attcking direction
+
+# shot_summary = (
+#     df[df["is_shot"]]
+#     .groupby(
+#         ["team_name", "period"]
+#     )
+#     .agg(
+#         shots=("event_id", "count"),
+#         avg_shot_x=("start_x", "mean"),
+#         min_shot_x=("start_x", "min"),
+#         max_shot_x=("start_x", "max"),
+#     )
+# )
+
+# print(shot_summary)

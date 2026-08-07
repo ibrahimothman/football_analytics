@@ -48,9 +48,8 @@ data/silver/*
 !data/silver/.gitkeep
 data/gold/*
 !data/gold/.gitkeep
-reports/*
-!reports/.gitkeep
 
-# Matplotlib / plot caches
-*.png
-!reports/.gitkeep
+# Generated report outputs (keep report source scripts tracked)
+reports/**/*.png
+reports/**/*.pdf
+reports/**/*.html
