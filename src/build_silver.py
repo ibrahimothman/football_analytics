@@ -280,6 +280,7 @@ def bronze_to_silver_row(
         "xt_start": xt_start,
         "xt_end": xt_end,
         "xt_added": xt_added,
+        "xt_model_version": XT_MODEL_VERSION,
 
         "source_version": row["source_version"],
         "file_hash": row["file_hash"],
