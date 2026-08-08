@@ -1,0 +1,9 @@
+{
+  "model_name": "Expected Threat",
+  "model_version": "open_xt_12x8_v1",
+  "grid_width": 12,
+  "grid_height": 8,
+  "source_url": "https://karun.in/blog/data/open_xt_12x8_v1.json",
+  "sha256": "5d8e9aaa1da23bbb39a6c6ffdd5b96d175e01c800064c5a1cc19e228c9875a7f",
+  "downloaded_at": "2026-08-08T06:21:30.818192+00:00"
+}

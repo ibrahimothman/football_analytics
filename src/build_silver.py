@@ -11,6 +11,13 @@ from typing import Any
 import pandas as pd
 
 
+from src.metrics.expected_threat import (
+    XT_MODEL_VERSION,
+    load_xt_grid,
+    rate_move,
+)
+
+
 BRONZE_DIR = Path("data/bronze")
 SILVER_DIR = Path("data/silver")
 
@@ -159,6 +166,7 @@ def is_progressive_pass(
 
 def bronze_to_silver_row(
     row: pd.Series,
+    xt_grid: list[list[float]],
 ) -> dict:
 
     event = json.loads(
@@ -212,6 +220,22 @@ def bronze_to_silver_row(
     distance_gained, progress_ratio = calculate_progression(start_x, start_y, end_x, end_y)
     progressive_pass = is_progressive_pass(completed_pass, progress_ratio)
 
+    is_successful_move = (completed_pass or event_type == "Carry")
+    xt_start = None
+    xt_end = None
+    xt_added = None
+
+    if is_successful_move:
+        
+        xt_start, xt_end, xt_added = rate_move(
+            grid=xt_grid,
+            start_x=start_x,
+            start_y=start_y,
+            end_x=end_x,
+            end_y=end_y,
+        )
+    
+
 
     
 
@@ -251,6 +275,11 @@ def bronze_to_silver_row(
         "is_progressive_pass": progressive_pass,
         "progress_ratio": progress_ratio,
         "progress_toward_goal_m": distance_gained,
+
+        "is_successful_move": is_successful_move,
+        "xt_start": xt_start,
+        "xt_end": xt_end,
+        "xt_added": xt_added,
 
         "source_version": row["source_version"],
         "file_hash": row["file_hash"],
@@ -368,7 +397,23 @@ def validate_silver(
     if invalid_progress_ratio.any():
         raise ValueError(
             "Progressive pass below configured threshold."
-        )            
+        )          
+
+
+    # validate xt_values
+    successful_moves = df[df["is_successful_move"]]
+    missing_xt = successful_moves[
+        [
+            "xt_start",
+            "xt_end",
+            "xt_added",
+        ]
+    ].isna().any(axis=1)
+
+    if missing_xt.any():
+        raise ValueError(
+            "Successful moves with missing xT values."
+        )
 
 def find_bronze_file(
     match_id: int,
@@ -405,8 +450,10 @@ def build_silver(
         bronze_path
     )
 
+
+    xt_grid = load_xt_grid()    
     rows = [
-        bronze_to_silver_row(row)
+        bronze_to_silver_row(row, xt_grid)
         for _, row in bronze_df.iterrows()
     ]
 
