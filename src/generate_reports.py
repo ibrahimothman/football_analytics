@@ -14,6 +14,9 @@ from src.reports.shot_map import (
 from src.reports.xg_timeline import (
     generate_xg_timeline,
 )
+from src.reports.xt_momentum import (
+    generate_xt_momentum,
+)
 
 
 SILVER_DIR = Path("data/silver")
@@ -54,6 +57,11 @@ def generate_reports(
         "team_metrics_*.parquet",
     )
 
+    gold_intervals_path = latest_file(
+        GOLD_DIR / f"match_id={match_id}",
+        "team_intervals_*.parquet",
+    )
+
     generate_match_summary(
         gold_path
     )
@@ -64,6 +72,10 @@ def generate_reports(
 
     generate_xg_timeline(
         silver_path
+    )
+
+    generate_xt_momentum(
+        gold_intervals_path
     )
 
 
