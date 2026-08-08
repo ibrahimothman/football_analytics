@@ -11,6 +11,9 @@ from src.reports.match_summary import (
 from src.reports.shot_map import (
     generate_shot_map,
 )
+from src.reports.xg_timeline import (
+    generate_xg_timeline,
+)
 
 
 SILVER_DIR = Path("data/silver")
@@ -56,6 +59,10 @@ def generate_reports(
     )
 
     generate_shot_map(
+        silver_path
+    )
+
+    generate_xg_timeline(
         silver_path
     )
 
