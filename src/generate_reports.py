@@ -45,7 +45,7 @@ def latest_file(
 
 def generate_reports(
     match_id: int,
-) -> None:
+) -> list[Path]:
 
     silver_path = latest_file(
         SILVER_DIR / f"match_id={match_id}",
@@ -62,21 +62,23 @@ def generate_reports(
         "team_intervals_*.parquet",
     )
 
-    generate_match_summary(
-        gold_path
-    )
+    return [
+        generate_match_summary(
+            gold_path
+        ),
 
-    generate_shot_map(
-        silver_path
-    )
+        generate_shot_map(
+            silver_path
+        ),
 
-    generate_xg_timeline(
-        silver_path
-    )
+        generate_xg_timeline(
+            silver_path
+        ),
 
-    generate_xt_momentum(
-        gold_intervals_path
-    )
+        generate_xt_momentum(
+            gold_intervals_path
+        )
+    ]
 
 
 def main() -> None:
