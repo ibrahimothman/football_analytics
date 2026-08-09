@@ -53,3 +53,6 @@ data/gold/*
 reports/**/*.png
 reports/**/*.pdf
 reports/**/*.html
+
+steps.txt
+alternative.txt
