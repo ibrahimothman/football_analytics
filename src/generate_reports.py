@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
 from src.reports.match_summary import (
@@ -18,6 +19,8 @@ from src.reports.xt_momentum import (
     generate_xt_momentum,
 )
 
+
+logger = logging.getLogger(__name__)
 
 SILVER_DIR = Path("data/silver")
 GOLD_DIR = Path("data/gold")
@@ -62,7 +65,7 @@ def generate_reports(
         "team_intervals_*.parquet",
     )
 
-    return [
+    outputs = [
         generate_match_summary(
             gold_path
         ),
@@ -77,8 +80,18 @@ def generate_reports(
 
         generate_xt_momentum(
             gold_intervals_path
-        )
+        ),
     ]
+
+    logger.info(
+        "reports_generated",
+        extra={
+            "outputs": [str(path) for path in outputs],
+            "report_count": len(outputs),
+        },
+    )
+
+    return outputs
 
 
 def main() -> None:

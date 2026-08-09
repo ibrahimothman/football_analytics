@@ -6,7 +6,9 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import logging
 
+logger = logging.getLogger(__name__)   
 
 REPORTS_DIR = Path("reports")
 
@@ -135,8 +137,6 @@ def generate_match_summary(
 
     plt.close(fig)
 
-    print(
-        f"Match summary generated: {output_path}"
-    )
+    logger.info("match_summary_generated", extra={"match_id": match_id, "output_path": str(output_path)})
 
     return output_path

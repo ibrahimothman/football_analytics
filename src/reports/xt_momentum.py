@@ -7,6 +7,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 REPORTS_DIR = Path("reports")
 
@@ -236,8 +239,6 @@ def generate_xt_momentum(
 
     plt.close(fig)
 
-    print(
-        f"xT momentum generated: {output_path}"
-    )
+    logger.info("xt_momentum_generated", extra={"match_id": match_id, "output_path": str(output_path)})
 
     return output_path

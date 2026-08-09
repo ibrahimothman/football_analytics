@@ -141,7 +141,7 @@ def write_pipeline_run(
     failed_stage: PipelineRunStage | None = None,
     error_type: str | None = None,
     error_message: str | None = None,
-) -> None:
+) -> PipelineRun:
     """Record one completed pipeline execution."""
 
 
@@ -161,6 +161,8 @@ def write_pipeline_run(
         asdict(record),
     )
 
+    return record
+
 
 def write_stage_run(
     stage_run_id: str,
@@ -174,7 +176,7 @@ def write_stage_run(
     rows_out: int | None = None,
     error_type: str | None = None,
     error_message: str | None = None,
-) -> None:
+) -> PipelineRunStageRun:
 
     record = PipelineRunStageRun(
         stage_run_id=stage_run_id,
@@ -194,3 +196,5 @@ def write_stage_run(
         PIPELINE_STAGE_RUNS_PATH,
         asdict(record),
     )
+
+    return record

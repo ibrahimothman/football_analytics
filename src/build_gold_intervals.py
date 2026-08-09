@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
 import pandas as pd
 
+
+logger = logging.getLogger(__name__)
 
 SILVER_DIR = Path("data/silver")
 GOLD_DIR = Path("data/gold")
@@ -504,27 +507,13 @@ def build_gold_intervals(
         index=False,
     )
 
-    print()
-    print("Gold interval build successful")
-    print("------------------------------")
-
-    print(
-        metrics[
-            [
-                "team_name",
-                "interval_start",
-                "interval_label",
-                "positive_xt",
-                "negative_xt",
-                "net_xt",
-                "shots",
-                "xg",
-            ]
-        ].to_string(index=False)
+    logger.info(
+        "gold_interval_build_succeeded",
+        extra={
+            "intervals": len(metrics),
+            "output_path": str(output_path),
+        },
     )
-
-    print()
-    print(f"Output: {output_path}")
 
     return output_path       
 

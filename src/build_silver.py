@@ -5,11 +5,11 @@ from __future__ import annotations
 import math
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
 
 from src.metrics.expected_threat import (
     XT_MODEL_VERSION,
@@ -17,6 +17,8 @@ from src.metrics.expected_threat import (
     rate_move,
 )
 
+
+logger = logging.getLogger(__name__)
 
 BRONZE_DIR = Path("data/bronze")
 SILVER_DIR = Path("data/silver")
@@ -305,11 +307,12 @@ def check_attacking_direction_using_shots(
     ]
 
     if not suspicious.empty:
-        print(
-            "WARNING: possible coordinate "
-            "orientation issue:"
+        logger.warning(
+            "possible_coordinate_orientation_issue",
+            extra={
+                "suspicious_teams": suspicious.to_dict(),
+            },
         )
-        print(suspicious)
 
 def validate_silver(
     df: pd.DataFrame,
@@ -488,19 +491,12 @@ def build_silver(
         index=False,
     )
 
-    print()
-    print("Silver build successful")
-    print("-----------------------")
-    print(f"Match:   {match_id}")
-    print(f"Events:  {len(silver_df):,}")
-    print(f"Output:  {silver_path}")
-
-    print("\nEvent types:")
-    print(
-        silver_df["event_type"]
-        .value_counts()
-        .head(15)
-        .to_string()
+    logger.info(
+        "silver_build_succeeded",
+        extra={
+            "rows_out": len(silver_df),
+            "output_path": str(silver_path),
+        },
     )
 
     return silver_path   

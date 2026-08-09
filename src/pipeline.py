@@ -4,8 +4,16 @@ from typing import Callable, Any
 from pathlib import Path
 import argparse
 import sys
+import logging
 
 import pandas as pd
+
+from src.observability.logging_config import (
+    configure_logging,
+    set_run_context,
+    set_stage_context,
+    clear_stage_context,
+)
 
 from src.metadata.run_tracker import (
     PipelineRunStage,
@@ -24,6 +32,8 @@ from src.build_gold import build_gold
 from src.build_gold_intervals import build_gold_intervals
 from src.generate_reports import generate_reports
 
+
+logger = logging.getLogger(__name__)
 
 STAGE_FUNCTIONS: dict[PipelineRunStage, Callable[[int], Any]] = {
     PipelineRunStage.INGEST: ingest_match,
@@ -56,15 +66,15 @@ def run_stage(
     stage_run_id = new_stage_run_id()
     started_at = utc_now()
 
-    print()
-    print(f"[{stage}] STARTED")
+    set_stage_context(stage=stage)
+    logger.info("stage_started", extra={"stage_run_id": stage_run_id})
 
     try:
         result = function(match_id)
         completed_at = utc_now()
         rows_out = count_output_rows(result)
 
-        write_stage_run(
+        run_stage = write_stage_run(
             stage_run_id=stage_run_id,
             run_id=run_id,
             match_id=match_id,
@@ -75,17 +85,19 @@ def run_stage(
             rows_out=rows_out,
         )
 
-        print(f"[{stage}] SUCCEEDED")
-
-        if rows_out is not None:
-            print(f"[{stage}] {rows_out} rows out")
-
-        return result
+        logger.info(
+            "stage_succeeded", 
+            extra={
+                "stage_run_id": stage_run_id, 
+                "rows_out": rows_out,
+                "duration_seconds": run_stage.duration_seconds,
+            },
+        )
 
     except Exception as e:
         completed_at = utc_now()
 
-        write_stage_run(
+        run_stage = write_stage_run(
             stage_run_id=stage_run_id,
             run_id=run_id,
             match_id=match_id,
@@ -97,8 +109,19 @@ def run_stage(
             error_message=str(e),
         )
 
-        print(f"[{stage}] FAILED")
+        logger.exception(
+            "stage_failed", 
+            extra={
+                "stage_run_id": stage_run_id,
+                "duration_seconds": run_stage.duration_seconds,
+                "error_type": type(e).__name__,
+            },
+        )
         raise StageFailedError(stage=stage, error=e) from e
+
+
+    finally:
+        clear_stage_context()
 
 
 def record_not_run_stages(
@@ -118,7 +141,7 @@ def record_not_run_stages(
             completed_at=None,
             status=PipelineRunStatus.NOT_RUN,
         )
-        print(f"[{stage}] NOT_RUN")
+        logger.info("stage_not_run", extra={"stage": stage})
 
 
 def run_pipeline(
@@ -129,9 +152,8 @@ def run_pipeline(
     run_id = new_run_id()
     started_at = utc_now()
 
-    print()
-    print(f"Pipeline run {run_id}")
-    print(f"Match {match_id}")
+    set_run_context(run_id=run_id, match_id=match_id)
+    logger.info("pipeline_started")
 
     try:
         for stage_name, function in STAGE_FUNCTIONS.items():
@@ -143,7 +165,7 @@ def run_pipeline(
             )
 
         completed_at = utc_now()
-        write_pipeline_run(
+        run = write_pipeline_run(
             run_id=run_id,
             match_id=match_id,
             started_at=started_at,
@@ -151,10 +173,12 @@ def run_pipeline(
             status=PipelineRunStatus.SUCCEEDED,
         )
 
+        logger.info("pipeline_succeeded", extra={"duration_seconds": run.duration_seconds})
+
     except StageFailedError as e:
         completed_at = utc_now()
 
-        write_pipeline_run(
+        run = write_pipeline_run(
             run_id=run_id,
             match_id=match_id,
             started_at=started_at,
@@ -165,14 +189,23 @@ def run_pipeline(
             error_message=str(e.error),
         )
 
+
         record_not_run_stages(
             run_id=run_id,
             match_id=match_id,
             failed_stage=e.stage
         )
 
-        print()
-        print("Pipeline FAILED")
+        logger.error(
+            "pipeline_failed", 
+            extra={
+                "duration_seconds": run.duration_seconds, 
+                "failed_stage": e.stage,
+                "error_type": type(e.error).__name__,
+                "error_message": str(e.error),
+            }
+        )
+
         raise
 
 
@@ -190,6 +223,9 @@ class StageFailedError(Exception):
 
 
 def main() -> None:
+
+    configure_logging()
+    
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--match-id", type=int, required=True)

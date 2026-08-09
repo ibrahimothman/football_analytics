@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
 
+
+logger = logging.getLogger(__name__)
 
 PROVIDER = "statsbomb_open_data"
 
@@ -65,8 +68,6 @@ def ingest_match(match_id: int) -> dict:
 
     url = EVENTS_URL.format(match_id=match_id)
 
-    print(f"Fetching match {match_id}...")
-
     response = requests.get(url, timeout=30)
     response.raise_for_status()
 
@@ -83,9 +84,14 @@ def ingest_match(match_id: int) -> dict:
     )
 
     if existing:
-        print("Exact source version already ingested.")
-        print(f"Raw file: {existing['raw_path']}")
-
+        logger.info(
+            "match_already_ingested",
+            extra={
+                "match_id": match_id,
+                "raw_path": existing["raw_path"],
+                "file_hash": file_hash,
+            },
+        )
         return existing
 
     previous_versions = [
@@ -124,15 +130,25 @@ def ingest_match(match_id: int) -> dict:
         file.write(json.dumps(record) + "\n")
 
     if previous_versions:
-        print(
-            f"Source changed. Registered version "
-            f"{source_version}."
+        logger.info(
+            "source_changed_new_version_registered",
+            extra={
+                "match_id": match_id,
+                "source_version": source_version,
+                "raw_path": str(raw_path),
+                "file_hash": file_hash,
+            },
         )
     else:
-        print("New match successfully ingested.")
-
-    print(f"Raw file: {raw_path}")
-    print(f"SHA-256: {file_hash}")
+        logger.info(
+            "match_ingested",
+            extra={
+                "match_id": match_id,
+                "source_version": source_version,
+                "raw_path": str(raw_path),
+                "file_hash": file_hash,
+            },
+        )
 
     return record
 

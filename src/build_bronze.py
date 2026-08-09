@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
+
+logger = logging.getLogger(__name__)
 
 MANIFEST_PATH = Path(
     "data/metadata/ingestion_manifest.jsonl"
@@ -280,14 +283,15 @@ def build_bronze(
         index=False,
     )
 
-    print()
-    print("Bronze build successful")
-    print("-----------------------")
-    print(f"Match:       {match_id}")
-    print(f"Source:      {raw_path}")
-    print(f"Events:      {len(bronze_df):,}")
-    print(f"Columns:     {len(bronze_df.columns)}")
-    print(f"Bronze file: {bronze_path}")
+    logger.info(
+        "bronze_build_succeeded",
+        extra={
+            "source_path": str(raw_path),
+            "events": len(bronze_df),
+            "columns": len(bronze_df.columns),
+            "output_path": str(bronze_path),
+        },
+    )
 
     return bronze_path
 

@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from mplsoccer import VerticalPitch
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 REPORTS_DIR = Path("reports")
 
@@ -176,8 +179,5 @@ def generate_shot_map(
 
     plt.close(fig)
 
-    print(
-        f"Shot map generated: {output_path}"
-    )
-
+    logger.info("shot_map_generated", extra={"match_id": match_id, "output_path": str(output_path)})
     return output_path
