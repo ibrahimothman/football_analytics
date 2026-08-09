@@ -11,13 +11,43 @@ import pandas as pd
 REPORTS_DIR = Path("reports")
 
 
+INTERVAL_ORDER = [
+    "0-5",
+    "5-10",
+    "10-15",
+    "15-20",
+    "20-25",
+    "25-30",
+    "30-35",
+    "35-40",
+    "40-45",
+    "45+",
+    "45-50",
+    "50-55",
+    "55-60",
+    "60-65",
+    "65-70",
+    "70-75",
+    "75-80",
+    "80-85",
+    "85-90",
+    "90+",
+]
+
+
 def generate_xt_momentum(
     gold_intervals_path: Path,
 ) -> Path:
+    """Generate xT threat momentum chart from Gold interval metrics."""
 
     df = pd.read_parquet(
         gold_intervals_path
     )
+
+    if df.empty:
+        raise ValueError(
+            "Gold interval dataset is empty."
+        )
 
     match_id = int(
         df["match_id"].iloc[0]
@@ -34,64 +64,123 @@ def generate_xt_momentum(
             "Expected exactly two teams."
         )
 
+    # Map each football interval to a stable display order.
+    order_lookup = {
+        label: index
+        for index, label in enumerate(
+            INTERVAL_ORDER
+        )
+    }
+
+    df = df.copy()
+
+    df["display_order"] = (
+        df["interval_label"]
+        .map(order_lookup)
+    )
+
+    unknown_intervals = df[
+        df["display_order"].isna()
+    ]
+
+    if not unknown_intervals.empty:
+        raise ValueError(
+            "Unexpected interval labels found: "
+            f"{unknown_intervals['interval_label'].unique().tolist()}"
+        )
+
+    # Build one aligned row per expected interval.
     team_a = (
         df[
             df["team_name"] == teams[0]
         ]
-        .sort_values("interval_start")
+        .set_index("interval_label")
+        .reindex(INTERVAL_ORDER)
     )
 
     team_b = (
         df[
             df["team_name"] == teams[1]
         ]
-        .sort_values("interval_start")
+        .set_index("interval_label")
+        .reindex(INTERVAL_ORDER)
+    )
+
+    # Densification should already guarantee these exist,
+    # but fail loudly if something unexpected happened.
+    if team_a["positive_xt"].isna().any():
+        raise ValueError(
+            f"Missing xT intervals for {teams[0]}."
+        )
+
+    if team_b["positive_xt"].isna().any():
+        raise ValueError(
+            f"Missing xT intervals for {teams[1]}."
+        )
+
+    x_positions = list(
+        range(len(INTERVAL_ORDER))
     )
 
     fig, ax = plt.subplots(
-        figsize=(13, 6)
+        figsize=(15, 7)
     )
 
-    x_a = (
-        team_a["interval_start"]
-        + 2.5
-    )
-
-    x_b = (
-        team_b["interval_start"]
-        + 2.5
-    )
-
-    # Team A is displayed upward.
+    # Team A is plotted upward.
     ax.bar(
-        x_a,
+        x_positions,
         team_a["positive_xt"],
-        width=4.2,
+        width=0.8,
         label=teams[0],
     )
 
-    # Team B is displayed downward purely
-    # for visual comparison.
+    # Team B has positive xT too.
+    # We multiply by -1 only for visual comparison.
     ax.bar(
-        x_b,
+        x_positions,
         -team_b["positive_xt"],
-        width=4.2,
+        width=0.8,
         label=teams[1],
     )
 
+    # Zero baseline.
     ax.axhline(
         0,
         linewidth=1,
     )
 
+    # Halftime falls between 45+ and 45-50.
+    halftime_position = 9.5
+
     ax.axvline(
-        45,
+        halftime_position,
         linestyle="--",
         alpha=0.5,
     )
 
+    # Add HT label near the top of the chart.
+    y_min, y_max = ax.get_ylim()
+
+    ax.text(
+        halftime_position,
+        y_max * 0.95,
+        "HT",
+        ha="center",
+        va="top",
+    )
+
+    ax.set_xticks(
+        x_positions
+    )
+
+    ax.set_xticklabels(
+        INTERVAL_ORDER,
+        rotation=45,
+        ha="right",
+    )
+
     ax.set_xlabel(
-        "Match minute"
+        "Match interval"
     )
 
     ax.set_ylabel(
@@ -107,6 +196,21 @@ def generate_xt_momentum(
     ax.grid(
         axis="y",
         alpha=0.2,
+    )
+
+    # Optional explanatory note because the second
+    # team's bars are visually inverted.
+    ax.text(
+        0.01,
+        0.02,
+        (
+            f"{teams[0]} shown above zero; "
+            f"{teams[1]} shown below zero "
+            "for visual comparison only."
+        ),
+        transform=ax.transAxes,
+        fontsize=9,
+        alpha=0.7,
     )
 
     report_directory = (

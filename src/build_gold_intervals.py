@@ -41,22 +41,90 @@ def find_silver_file(
 def add_interval(
     events: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Assign every event to a fixed 5-minute interval."""
+    """Assign events to period-aware football intervals."""
 
     events = events.copy()
 
+    if events["period"].isna().any():
+        raise ValueError(
+            "Cannot build intervals with missing period."
+        )
+
+    # Minute relative to the start of each half.
+    events["period_minute"] = events["minute"]
+
+    second_half = events["period"] == 2
+
+    events.loc[
+        second_half,
+        "period_minute",
+    ] = (
+        events.loc[
+            second_half,
+            "minute",
+        ]
+        - 45
+    )
+
+    # Regulation-time buckets.
     events["interval_start"] = (
-        events["minute"]
+        events["period_minute"]
         // INTERVAL_MINUTES
         * INTERVAL_MINUTES
     ).astype(int)
 
-    events["interval_end"] = (
-        events["interval_start"]
+    # First-half stoppage time.
+    first_half_stoppage = (
+        (events["period"] == 1)
+        & (events["minute"] >= 45)
+    )
+
+    # Second-half stoppage time.
+    second_half_stoppage = (
+        (events["period"] == 2)
+        & (events["minute"] >= 90)
+    )
+
+    events["is_stoppage_time"] = False
+
+    events.loc[
+        first_half_stoppage
+        | second_half_stoppage,
+        "is_stoppage_time",
+    ] = True
+
+    return events
+
+def create_interval_label(
+    period: int,
+    interval_start: int,
+    is_stoppage_time: bool,
+) -> str:
+
+    if period == 1 and is_stoppage_time:
+        return "45+"
+
+    if period == 2 and is_stoppage_time:
+        return "90+"
+
+    if period == 1:
+        absolute_start = interval_start
+    elif period == 2:
+        absolute_start = 45 + interval_start
+    else:
+        raise ValueError(
+            f"Unsupported match period: {period}"
+        )
+
+    absolute_end = (
+        absolute_start
         + INTERVAL_MINUTES
     )
 
-    return events    
+    return (
+        f"{absolute_start}-"
+        f"{absolute_end}"
+    )    
 
 def calculate_interval_metrics(
     events: pd.DataFrame,
@@ -71,8 +139,9 @@ def calculate_interval_metrics(
             "match_id",
             "team_id",
             "team_name",
+            "period",
             "interval_start",
-            "interval_end",
+            "is_stoppage_time",
         ],
         dropna=False,
     )
@@ -83,9 +152,18 @@ def calculate_interval_metrics(
             match_id,
             team_id,
             team_name,
+            period,
             interval_start,
-            interval_end,
+            is_stoppage_time,
         ) = keys
+
+        interval_label = create_interval_label(
+            period=int(period),
+            interval_start=int(interval_start),
+            is_stoppage_time=bool(
+                is_stoppage_time
+            ),
+        )
 
         moves = group[
             group["is_successful_move"]
@@ -131,8 +209,17 @@ def calculate_interval_metrics(
                 "team_id": team_id,
                 "team_name": team_name,
 
-                "interval_start": interval_start,
-                "interval_end": interval_end,
+                "period": int(period),
+
+                "interval_start": int(
+                    interval_start
+                ),
+
+                "is_stoppage_time": bool(
+                    is_stoppage_time
+                ),
+
+                "interval_label": interval_label,
 
                 "positive_xt": float(
                     positive_xt
@@ -159,7 +246,6 @@ def calculate_interval_metrics(
                 ),
             }
         )
-
     return pd.DataFrame(rows)    
 
 
@@ -167,7 +253,7 @@ def densify_intervals(
     metrics: pd.DataFrame,
     events: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Ensure every team has every match interval."""
+    """Ensure both teams have all regulation intervals."""
 
     teams = (
         events[
@@ -177,22 +263,6 @@ def densify_intervals(
         .drop_duplicates()
     )
 
-    max_minute = int(
-        events["minute"].max()
-    )
-
-    max_interval_start = (
-        max_minute
-        // INTERVAL_MINUTES
-        * INTERVAL_MINUTES
-    )
-
-    intervals = range(
-        0,
-        max_interval_start + INTERVAL_MINUTES,
-        INTERVAL_MINUTES,
-    )
-
     match_id = int(
         events["match_id"].iloc[0]
     )
@@ -200,34 +270,96 @@ def densify_intervals(
     complete_rows = []
 
     for _, team in teams.iterrows():
-        for interval_start in intervals:
 
+        # First-half regulation buckets.
+        for interval_start in range(
+            0,
+            45,
+            INTERVAL_MINUTES,
+        ):
             complete_rows.append(
                 {
                     "match_id": match_id,
                     "team_id": team["team_id"],
                     "team_name": team["team_name"],
+                    "period": 1,
                     "interval_start": interval_start,
-                    "interval_end": (
-                        interval_start
-                        + INTERVAL_MINUTES
-                    ),
+                    "is_stoppage_time": False,
+                    "interval_label":
+                        create_interval_label(
+                            1,
+                            interval_start,
+                            False,
+                        ),
                 }
             )
+
+        # First-half stoppage.
+        complete_rows.append(
+            {
+                "match_id": match_id,
+                "team_id": team["team_id"],
+                "team_name": team["team_name"],
+                "period": 1,
+                "interval_start": 45,
+                "is_stoppage_time": True,
+                "interval_label": "45+",
+            }
+        )
+
+        # Second-half regulation buckets.
+        for interval_start in range(
+            0,
+            45,
+            INTERVAL_MINUTES,
+        ):
+            complete_rows.append(
+                {
+                    "match_id": match_id,
+                    "team_id": team["team_id"],
+                    "team_name": team["team_name"],
+                    "period": 2,
+                    "interval_start": interval_start,
+                    "is_stoppage_time": False,
+                    "interval_label":
+                        create_interval_label(
+                            2,
+                            interval_start,
+                            False,
+                        ),
+                }
+            )
+
+        # Second-half stoppage.
+        complete_rows.append(
+            {
+                "match_id": match_id,
+                "team_id": team["team_id"],
+                "team_name": team["team_name"],
+                "period": 2,
+                "interval_start": 45,
+                "is_stoppage_time": True,
+                "interval_label": "90+",
+            }
+        )
 
     complete = pd.DataFrame(
         complete_rows
     )
 
+    join_columns = [
+        "match_id",
+        "team_id",
+        "team_name",
+        "period",
+        "interval_start",
+        "is_stoppage_time",
+        "interval_label",
+    ]
+
     result = complete.merge(
         metrics,
-        on=[
-            "match_id",
-            "team_id",
-            "team_name",
-            "interval_start",
-            "interval_end",
-        ],
+        on=join_columns,
         how="left",
     )
 
@@ -245,8 +377,9 @@ def densify_intervals(
         .fillna(0)
     )
 
-    return result    
+    return result
 
+  
 
 def validate_intervals(
     df: pd.DataFrame,
@@ -261,7 +394,9 @@ def validate_intervals(
         subset=[
             "match_id",
             "team_id",
+            "period",
             "interval_start",
+            "is_stoppage_time",
         ]
     )
 
@@ -378,7 +513,7 @@ def build_gold_intervals(
             [
                 "team_name",
                 "interval_start",
-                "interval_end",
+                "interval_label",
                 "positive_xt",
                 "negative_xt",
                 "net_xt",
