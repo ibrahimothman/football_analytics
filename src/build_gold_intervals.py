@@ -46,7 +46,7 @@ def add_interval(
     events = events.copy()
 
     if events["period"].isna().any():
-        raise ValueError(
+        raise ValuerError(
             "Cannot build intervals with missing period."
         )
 
