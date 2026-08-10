@@ -48,11 +48,21 @@ data/silver/*
 !data/silver/.gitkeep
 data/gold/*
 !data/gold/.gitkeep
+data/metadata/*
+!data/metadata/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
+
+
 
 # Generated report outputs (keep report source scripts tracked)
 reports/**/*.png
 reports/**/*.pdf
 reports/**/*.html
+
+# Airflow runtime (keep dags/ and custom plugins tracked)
+logs/
+config/
 
 steps.txt
 alternative.txt
