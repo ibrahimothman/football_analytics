@@ -11,7 +11,7 @@ SEASON_ID = 44
 TEAM_NAME = "Arsenal"
 
 
-def get_matches(team_name: str, competition_id: int, season_id: int) -> pd.DataFrame:
+def get_matches() -> pd.DataFrame:
     """Return Arsenal matches from the 2003/2004 Premier League season."""
 
     matches = sb.matches(
@@ -37,8 +37,8 @@ def get_matches(team_name: str, competition_id: int, season_id: int) -> pd.DataF
         )
 
     matches = matches.loc[
-        matches["home_team"].eq(team_name)
-        | matches["away_team"].eq(team_name),
+        matches["home_team"].eq(TEAM_NAME)
+        | matches["away_team"].eq(TEAM_NAME),
         [
             "match_id",
             "match_date",
@@ -51,7 +51,7 @@ def get_matches(team_name: str, competition_id: int, season_id: int) -> pd.DataF
 
     if matches.empty:
         raise ValueError(
-            f"No matches were found for {team_name}."
+            f"No matches were found for {TEAM_NAME}."
         )
 
     return matches.sort_values("match_date")
@@ -60,7 +60,7 @@ def get_matches(team_name: str, competition_id: int, season_id: int) -> pd.DataF
 def main() -> None:
     """Print available matches."""
 
-    matches = get_matches(TEAM_NAME, COMPETITION_ID, SEASON_ID)
+    matches = get_matches()
 
     print(f"\nFound {len(matches)} {TEAM_NAME} matches:\n")
     print(matches.to_string(index=False))

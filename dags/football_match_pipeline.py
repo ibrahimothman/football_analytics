@@ -14,6 +14,7 @@ from airflow.sdk import (
     
 )
 
+
 from src.ingest_match import ingest_match
 from src.build_bronze import build_bronze
 from src.build_silver import build_silver
@@ -151,7 +152,11 @@ def football_match_pipeline():
     )
     def ingest():
         context = get_current_context()
-        match_id = context["params"]["match_id"]
+
+        dag_run = context["dag_run"]
+        conf_match_id = dag_run.conf.get("match_id") if dag_run and dag_run.conf else None
+
+        match_id = conf_match_id if conf_match_id else context["params"]["match_id"]
 
         logger.info(f"Starting to ingest match {match_id} from StatsBomb Open Data")
 
