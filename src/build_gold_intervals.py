@@ -445,11 +445,13 @@ def validate_intervals(
 
 def build_gold_intervals(
     match_id: int,
+    silver_path: Path,
 ) -> Path:
 
-    silver_path = find_silver_file(
-        match_id
-    )
+    if not silver_path.exists():
+        raise FileNotFoundError(
+            f"Silver artifact not found at {silver_path}"
+        )
 
     events = pd.read_parquet(
         silver_path

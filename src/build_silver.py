@@ -20,7 +20,6 @@ from src.metrics.expected_threat import (
 
 logger = logging.getLogger(__name__)
 
-BRONZE_DIR = Path("data/bronze")
 SILVER_DIR = Path("data/silver")
 
 SOURCE_LENGTH = 120
@@ -419,36 +418,16 @@ def validate_silver(
             "Successful moves with missing xT values."
         )
 
-def find_bronze_file(
-    match_id: int,
-) -> Path:
-
-    folder = (
-        BRONZE_DIR
-        / f"match_id={match_id}"
-    )
-
-    files = list(
-        folder.glob("events_*.parquet")
-    )
-
-    if not files:
-        raise FileNotFoundError(
-            f"No Bronze data found for match {match_id}"
-        )
-
-    return max(
-        files,
-        key=lambda path: path.stat().st_mtime,
-    )
 
 def build_silver(
     match_id: int,
+    bronze_path: Path,
 ) -> Path:
 
-    bronze_path = find_bronze_file(
-        match_id
-    )
+    if not bronze_path.exists():
+        raise FileNotFoundError(
+            f"Bronze artifact not found at {bronze_path}"
+        )
 
     bronze_df = pd.read_parquet(
         bronze_path

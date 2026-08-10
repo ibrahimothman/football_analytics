@@ -11,35 +11,9 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-SILVER_DIR = Path("data/silver")
 GOLD_DIR = Path("data/gold")
 
 METRIC_VERSION = "1.0"
-
-
-def find_silver_file(
-    match_id: int,
-) -> Path:
-    """Find latest Silver event file for a match."""
-
-    folder = (
-        SILVER_DIR
-        / f"match_id={match_id}"
-    )
-
-    files = list(
-        folder.glob("events_*.parquet")
-    )
-
-    if not files:
-        raise FileNotFoundError(
-            f"No Silver data found for match {match_id}"
-        )
-
-    return max(
-        files,
-        key=lambda path: path.stat().st_mtime,
-    )
 
 
 def calculate_team_metrics(
@@ -204,11 +178,13 @@ def validate_gold(
 
 def build_gold(
     match_id: int,
+    silver_path: Path,
 ) -> Path:
 
-    silver_path = find_silver_file(
-        match_id
-    )
+    if not silver_path.exists():
+        raise FileNotFoundError(
+            f"Silver artifact not found at {silver_path}"
+        )
 
     events = pd.read_parquet(
         silver_path

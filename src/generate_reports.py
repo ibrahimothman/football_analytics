@@ -22,48 +22,12 @@ from src.reports.xt_momentum import (
 
 logger = logging.getLogger(__name__)
 
-SILVER_DIR = Path("data/silver")
-GOLD_DIR = Path("data/gold")
-
-
-def latest_file(
-    folder: Path,
-    pattern: str,
-) -> Path:
-
-    files = list(
-        folder.glob(pattern)
-    )
-
-    if not files:
-        raise FileNotFoundError(
-            f"No files found in {folder}"
-        )
-
-    return max(
-        files,
-        key=lambda path: path.stat().st_mtime,
-    )
-
-
 def generate_reports(
     match_id: int,
+    silver_path: Path,
+    gold_path: Path,
+    gold_intervals_path: Path,
 ) -> list[Path]:
-
-    silver_path = latest_file(
-        SILVER_DIR / f"match_id={match_id}",
-        "events_*.parquet",
-    )
-
-    gold_path = latest_file(
-        GOLD_DIR / f"match_id={match_id}",
-        "team_metrics_*.parquet",
-    )
-
-    gold_intervals_path = latest_file(
-        GOLD_DIR / f"match_id={match_id}",
-        "team_intervals_*.parquet",
-    )
 
     outputs = [
         generate_match_summary(

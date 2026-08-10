@@ -1,7 +1,9 @@
 import logging
 from datetime import timedelta
+from pathlib import Path
 
 import requests
+
 
 import pendulum
 from airflow.sdk import (
@@ -134,6 +136,7 @@ INGEST_RETRY_POLICY = (IngestRetryPolicy())
             minimum=1,
         ),
     },
+    max_active_runs=2,
     on_failure_callback=dag_failure_callback,
     default_args={
         "on_failure_callback": task_failure_callback,
@@ -150,7 +153,7 @@ def football_match_pipeline():
         execution_timeout=timedelta(minutes=2),
         retry_policy=INGEST_RETRY_POLICY,
     )
-    def ingest():
+    def ingest()-> dict:
         context = get_current_context()
 
         dag_run = context["dag_run"]
@@ -161,76 +164,152 @@ def football_match_pipeline():
         logger.info(f"Starting to ingest match {match_id} from StatsBomb Open Data")
 
 
-        result = ingest_match(match_id)
+        artifact = ingest_match(match_id)
 
-        logger.info(f"Finished ingestion for match {match_id}")
+        logger.info(
+            "Source artifact selected"
+            "match_id: %s, source_version: %s, hash: %s",
+            artifact["match_id"],
+            artifact["source_version"],
+            artifact["file_hash"],
 
-        return match_id
+        )
+
+        return artifact
 
     @task(task_id="bronze")
-    def bronze(match_id: int) -> str:
+    def bronze(artifact: dict) -> dict:
 
-        logger.info(f"Starting to build bronze for match {match_id}")
+        logger.info(
+            "Starting to build bronze for match %s",
+            str(artifact["match_id"])+artifact["file_hash"],
+        )
 
-        bronze_output_path = build_bronze(match_id)
+        bronze_path = build_bronze(
+            match_id=artifact["match_id"],
+            file_hash=artifact["file_hash"],
+        )
 
-        logger.info(f"Finished building bronze for match {match_id}")
+        logger.info(
+            "Finished building bronze for match %s",
+            str(artifact["match_id"])+artifact["file_hash"],
+        )
 
-        return match_id
+        return {
+            **artifact,
+            "bronze_path": str(bronze_path),
+        }
 
     @task(task_id="silver")
-    def silver(match_id: int) -> str:
+    def silver(artifact: dict) -> str:
 
-        logger.info(f"Starting to build silver for match {match_id}")
+        logger.info(
+            "Starting to build silver for match %s",
+            str(artifact["match_id"])+artifact["file_hash"],
+        )
 
-        silver_output_path = build_silver(match_id)
+        silver_path = build_silver(
+            match_id=artifact["match_id"],
+            bronze_path=Path(artifact["bronze_path"]),
+        )
 
-        logger.info(f"Finished building silver for match {match_id}")
+        logger.info(
+            "Finished building silver for match %s",
+            str(artifact["match_id"])+artifact["file_hash"],
+        )
 
-        return match_id
+        return {
+            **artifact,
+            "silver_path": str(silver_path),
+        }
 
     @task(task_id="gold")
-    def gold(match_id: int) -> str:
+    def gold(artifact: dict) -> str:
 
-        logger.info(f"Starting to build gold team for match {match_id}")
+        logger.info(
+            "Starting to build gold team for match %s",
+            str(artifact["match_id"])+artifact["file_hash"],
+        )
 
-        gold_output_path = build_gold(match_id)
+        gold_path = build_gold(
+            match_id=artifact["match_id"],
+            silver_path=Path(artifact["silver_path"]),
+        )
 
-        logger.info(f"Finished building gold team for match {match_id}")
+        logger.info(
+            "Finished building gold team for match %s",
+            str(artifact["match_id"])+artifact["file_hash"],
+        )
 
-        return match_id
+        return {
+            **artifact,
+            "gold_path": str(gold_path),
+        }
 
     @task(task_id="gold_intervals")
-    def gold_intervals(match_id: int) -> str:
-        logger.info(f"Starting to build gold intervals for match {match_id}")
+    def gold_intervals(artifact: dict) -> str:
+        logger.info(
+            "Starting to build gold intervals for match %s",
+            str(artifact["match_id"])+artifact["file_hash"],
+        )
 
-        gold_intervals_output_path = build_gold_intervals(match_id)
+        gold_intervals_path = build_gold_intervals(
+            match_id=artifact["match_id"],
+            silver_path=Path(artifact["silver_path"]),
+        )
 
-        logger.info(f"Finished building gold intervals for match {match_id}")
+        logger.info(
+            "Finished building gold intervals for match %s",
+            str(artifact["match_id"])+artifact["file_hash"],
+        )
 
-        return match_id
+        return {
+            **artifact,
+            "gold_intervals_path": str(gold_intervals_path),
+        }
 
     @task(task_id="reports")
-    def reports(team_match_id: int, interval_match_id: int) -> int:
+    def reports(team_artifact: dict, intervals_artifact: dict) -> int:
         """Generate reports after both gold tasks complete."""
 
-        if team_match_id != interval_match_id:
-            raise ValueError(f"Team match {team_match_id} and interval match {interval_match_id} do not match")
+        if (
+            team_artifact["match_id"]
+            != intervals_artifact["match_id"]
+        ):
+            raise ValueError(
+                "Gold artifacts belong to different matches."
+            )
 
-        logger.info(f"Starting to generate reports for match {team_match_id}")
+        if (
+            team_artifact["file_hash"]
+            != intervals_artifact["file_hash"]
+        ):
+            raise ValueError(
+                "Gold artifacts were produced from "
+                "different source versions."
+            )
 
-        generate_reports(team_match_id)
+        logger.info(f"Starting to generate reports for match {team_artifact['match_id']}")
 
-        logger.info(f"Finished generating reports for match {team_match_id}")
+        reports_paths = generate_reports(
+            match_id=team_artifact["match_id"],
+            silver_path=Path(team_artifact["silver_path"]),
+            gold_path=Path(team_artifact["gold_path"]),
+            gold_intervals_path=Path(intervals_artifact["gold_intervals_path"]),
+        )
 
-        return team_match_id
+        return {
+            **team_artifact,
+            **intervals_artifact,
+            "reports_paths": [str(path) for path in reports_paths],
+        }
 
     ingested_match_id = ingest()
-    bronze_match_id = bronze(ingested_match_id)
-    silver_match_id = silver(bronze_match_id)
-    gold_team_match_id = gold(silver_match_id)
-    gold_intervals_match_id = gold_intervals(silver_match_id)
-    reports(gold_team_match_id, gold_intervals_match_id)
+    bronze_artifact = bronze(ingested_match_id)
+    silver_artifact = silver(bronze_artifact)
+    gold_team_artifact = gold(silver_artifact)
+    gold_intervals_artifact = gold_intervals(silver_artifact)
+    reports(gold_team_artifact, gold_intervals_artifact)
 
 
 football_match_pipeline()

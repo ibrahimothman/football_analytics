@@ -9,7 +9,7 @@ from airflow.providers.standard.operators.trigger_dagrun import (
     TriggerDagRunOperator,
 )
 
-from src.discover_matches import get_matches
+
 
 logger = logging.getLogger("airflow.task")
 
@@ -32,7 +32,7 @@ def get_ingested_match_ids() -> set[int]:
 
 @dag(
     dag_id="football_match_discovery",
-    schedule="@daily",
+    schedule=None,
     start_date=pendulum.datetime(
         2026,
         1,
@@ -47,6 +47,8 @@ def football_match_discovery()->list[int]:
     @task(task_id="discover_matches")
     def discover_matches() -> None:
         """Discover new matches to process."""
+        from src.discover_matches import get_matches
+        
         ingested_match_ids = get_ingested_match_ids()
         available_matches = get_matches()["match_id"].tolist()
         new_matches = [
@@ -64,7 +66,10 @@ def football_match_discovery()->list[int]:
             )
         return [
             {
-                "match_id": match_id
+                "conf": {
+                    "match_id": match_id
+                },
+                "trigger_run_id": f"match_{match_id}",
             }
             for match_id in new_matches[:2]
         ]
@@ -81,8 +86,8 @@ def football_match_discovery()->list[int]:
         ),
 
         wait_for_completion=False,
-    ).expand(
-        conf=new_match_configs
+    ).expand_kwargs(
+        new_match_configs
     )
 
 

@@ -44,6 +44,7 @@ def read_manifest() -> list[dict]:
 
 def get_latest_source(
     match_id: int,
+    file_hash: str,
 ) -> dict:
     """Return latest ingested source version for a match."""
 
@@ -52,12 +53,12 @@ def get_latest_source(
     matches = [
         record
         for record in manifest
-        if record["match_id"] == match_id
+        if record["match_id"] == match_id and record["file_hash"] == file_hash
     ]
 
     if not matches:
         raise ValueError(
-            f"Match {match_id} has not been ingested."
+            f"Match {match_id} with file hash {file_hash} has not been ingested."
         )
 
     return max(
@@ -228,10 +229,11 @@ def event_to_bronze_row(
 
 def build_bronze(
     match_id: int,
+    file_hash: str,
 ) -> Path:
     """Build Bronze Parquet for latest source version."""
 
-    source = get_latest_source(match_id)
+    source = get_latest_source(match_id, file_hash)
 
     raw_path = Path(source["raw_path"])
 
