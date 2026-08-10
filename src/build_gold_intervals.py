@@ -11,35 +11,11 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-SILVER_DIR = Path("data/silver")
 GOLD_DIR = Path("data/gold")
 
 INTERVAL_MINUTES = 5
 METRIC_VERSION = "1.0"
 
-
-def find_silver_file(
-    match_id: int,
-) -> Path:
-
-    folder = (
-        SILVER_DIR
-        / f"match_id={match_id}"
-    )
-
-    files = list(
-        folder.glob("events_*.parquet")
-    )
-
-    if not files:
-        raise FileNotFoundError(
-            f"No Silver data for match {match_id}."
-        )
-
-    return max(
-        files,
-        key=lambda path: path.stat().st_mtime,
-    )
 
 def add_interval(
     events: pd.DataFrame,
@@ -49,7 +25,7 @@ def add_interval(
     events = events.copy()
 
     if events["period"].isna().any():
-        raise ValuerError(
+        raise ValueError(
             "Cannot build intervals with missing period."
         )
 
