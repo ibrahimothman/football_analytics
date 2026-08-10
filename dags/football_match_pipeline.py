@@ -20,6 +20,7 @@ from src.build_silver import build_silver
 from src.build_gold import build_gold
 from src.build_gold_intervals import build_gold_intervals
 from src.generate_reports import generate_reports
+from src.observability.airflow_callbacks import dag_failure_callback, task_failure_callback, task_retry_callback
 
 logger = logging.getLogger("airflow.task")
 
@@ -131,6 +132,11 @@ INGEST_RETRY_POLICY = (IngestRetryPolicy())
             description="Match ID to ingest from StatsBomb Open Data",
             minimum=1,
         ),
+    },
+    on_failure_callback=dag_failure_callback,
+    default_args={
+        "on_failure_callback": task_failure_callback,
+        "on_retry_callback": task_retry_callback,
     },
     tags=["football"],
 )
