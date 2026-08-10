@@ -1,7 +1,18 @@
 import logging
+from datetime import timedelta
+
+import requests
 
 import pendulum
-from airflow.sdk import dag, task, Param, get_current_context
+from airflow.sdk import (
+    dag,
+    task, 
+    Param, 
+    get_current_context,
+    RetryPolicy,
+    RetryDecision,
+    
+)
 
 from src.ingest_match import ingest_match
 from src.build_bronze import build_bronze
@@ -11,6 +22,97 @@ from src.build_gold_intervals import build_gold_intervals
 from src.generate_reports import generate_reports
 
 logger = logging.getLogger("airflow.task")
+
+
+class IngestRetryPolicy(RetryPolicy):
+    """Retry only ingestion failures likely to be transient."""
+
+    def evaluate(
+        self,
+        exception,
+        try_number,
+        max_tries,
+        context=None,
+    ):
+        # Network timeout
+        if isinstance(
+            exception,
+            requests.exceptions.Timeout,
+        ):
+            return RetryDecision.retry(
+                retry_delay=timedelta(
+                    seconds=30
+                )
+            )
+
+        # Connection interrupted / unavailable
+        if isinstance(
+            exception,
+            requests.exceptions.ConnectionError,
+        ):
+            return RetryDecision.retry(
+                retry_delay=timedelta(
+                    seconds=30
+                )
+            )
+
+        # HTTP response errors
+        if isinstance(
+            exception,
+            requests.exceptions.HTTPError,
+        ):
+            response = exception.response
+
+            if response is None:
+                return RetryDecision.fail(
+                    reason="HTTP error without response"
+                )
+
+            status = response.status_code
+
+            # Rate limiting
+            if status == 429:
+                retry_after = int(
+                    response.headers.get(
+                        "Retry-After",
+                        60,
+                    )
+                )
+
+                return RetryDecision.retry(
+                    retry_delay=timedelta(
+                        seconds=retry_after
+                    )
+                )
+
+            # Provider/server problem
+            if 500 <= status < 600:
+                return RetryDecision.retry(
+                    retry_delay=timedelta(
+                        seconds=60
+                    )
+                )
+
+            # 4xx: our request is probably wrong
+            if 400 <= status < 500:
+                return RetryDecision.fail(
+                    reason=(
+                        f"Non-retryable HTTP "
+                        f"status {status}"
+                    )
+                )
+
+        # Unknown exception:
+        # fail rather than blindly retrying bugs.
+        return RetryDecision.fail(
+            reason=(
+                f"Non-retryable exception: "
+                f"{type(exception).__name__}"
+            )
+        )
+
+
+INGEST_RETRY_POLICY = (IngestRetryPolicy())        
 
 @dag(
     dag_id="football_match_pipeline",
@@ -34,7 +136,13 @@ logger = logging.getLogger("airflow.task")
 )
 def football_match_pipeline():
 
-    @task(task_id="ingest")
+    @task(
+        task_id="ingest",
+        retries=3,
+        retry_delay=timedelta(seconds=30),
+        execution_timeout=timedelta(minutes=2),
+        retry_policy=INGEST_RETRY_POLICY,
+    )
     def ingest():
         context = get_current_context()
         match_id = context["params"]["match_id"]
