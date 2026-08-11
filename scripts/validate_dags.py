@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from airflow.models.dagbag import DagBag
+from airflow.dag_processing.dagbag import DagBag
 
 
 def main() -> None:
     bag = DagBag(
         dag_folder="/opt/airflow/dags",
-        include_examples=False,
         safe_mode=False,
     )
 
