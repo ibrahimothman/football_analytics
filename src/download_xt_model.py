@@ -9,6 +9,8 @@ from pathlib import Path
 
 import requests
 
+from src.config import MODELS_ROOT
+
 
 MODEL_URL = (
     "https://karun.in/blog/data/"
@@ -17,7 +19,7 @@ MODEL_URL = (
 
 MODEL_VERSION = "open_xt_12x8_v1"
 
-MODEL_DIR = Path("models/xt")
+MODEL_DIR = MODELS_ROOT / "xt"
 
 MODEL_PATH = (
     MODEL_DIR

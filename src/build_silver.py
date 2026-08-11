@@ -10,20 +10,21 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from pyarrow import Int64Array
 
 from src.metrics.expected_threat import (
     XT_MODEL_VERSION,
     load_xt_grid,
     rate_move,
 )
-from src.contracts.silver import validate_silver_schema, validate_silver_type
+from src.contracts.silver import (
+    validate_silver_schema,
+    validate_silver_type,
+)
 from src.quality.reconcilation import reconcile_bronze_to_silver
+from src.config.settings import SILVER_DIR
 
 
 logger = logging.getLogger(__name__)
-
-SILVER_DIR = Path("data/silver")
 
 SOURCE_LENGTH = 120
 SOURCE_WIDTH = 80

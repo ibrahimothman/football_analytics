@@ -6,9 +6,14 @@ from contextvars import ContextVar
 import os
 import sys
 
+from src.config.settings import (
+    LOG_DIR,
+    LOG_LEVEL,
+    PIPELINE_LOG_PATH,
+)
 
-LOG_DIR = Path("data/logs")
-LOG_PATH = LOG_DIR / "pipeline.jsonl"
+
+LOG_PATH = PIPELINE_LOG_PATH
 
 
 RUN_ID = ContextVar("run_id", default=None)
@@ -99,7 +104,7 @@ def configure_logging():
     if getattr(root_logger, "_football_pipeline_configured", False):
         return
 
-    root_logger.setLevel(os.getenv("LOG_LEVEL", "INFO"))
+    root_logger.setLevel(LOG_LEVEL)
 
     formatter = JsonFormatter()
 

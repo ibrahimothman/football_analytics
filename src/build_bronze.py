@@ -10,14 +10,15 @@ from typing import Any
 
 import pandas as pd
 
+from src.config.settings import (
+    BRONZE_DIR,
+    INGESTION_MANIFEST_PATH,
+)
+
 
 logger = logging.getLogger(__name__)
 
-MANIFEST_PATH = Path(
-    "data/metadata/ingestion_manifest.jsonl"
-)
-
-BRONZE_DIR = Path("data/bronze")
+MANIFEST_PATH = INGESTION_MANIFEST_PATH
 
 
 def read_manifest() -> list[dict]:

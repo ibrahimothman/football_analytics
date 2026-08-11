@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pandas as pd
 
+from src.config import MODELS_ROOT
 
-MODEL_PATH = Path(
-    "models/xt/open_xt_12x8_v1.json"
-)
+
+MODEL_PATH = MODELS_ROOT / "xt" / "open_xt_12x8_v1.json"
 
 XT_MODEL_VERSION = "open_xt_12x8_v1"
 

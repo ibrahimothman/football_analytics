@@ -14,14 +14,13 @@ from src.build_gold import build_gold
 from src.build_gold_intervals import build_gold_intervals
 from src.generate_reports import generate_reports
 from src.paths import latest_file
+from src.config.settings import SILVER_DIR
 from src.observability.airflow_callbacks import (
     dag_failure_callback,
     task_failure_callback,
 )
 
 logger = logging.getLogger("airflow.task")
-
-SILVER_DIR = Path("data/silver")
 
 
 @dag(

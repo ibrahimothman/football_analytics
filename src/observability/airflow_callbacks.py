@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
+from src.config.settings import AIRFLOW_EVENTS_PATH
 
-EVENTS_PATH = Path(
-    "data/metadata/airflow_events.jsonl"
-)
+
+EVENTS_PATH = AIRFLOW_EVENTS_PATH
 
 
 def utc_now() -> str:

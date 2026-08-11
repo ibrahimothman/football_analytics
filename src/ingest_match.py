@@ -7,22 +7,22 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 
 import requests
+
+from src.config.settings import (
+    HTTP_TIMEOUT_SECONDS,
+    INGESTION_MANIFEST_PATH,
+    PROVIDER,
+    RAW_DIR,
+    STATSBOMB_EVENTS_URL,
+)
 
 
 logger = logging.getLogger(__name__)
 
-PROVIDER = "statsbomb_open_data"
-
-EVENTS_URL = (
-    "https://raw.githubusercontent.com/"
-    "statsbomb/open-data/master/data/events/{match_id}.json"
-)
-
-RAW_DIR = Path("data/raw")
-MANIFEST_PATH = Path("data/metadata/ingestion_manifest.jsonl")
+MANIFEST_PATH = INGESTION_MANIFEST_PATH
+EVENTS_URL = STATSBOMB_EVENTS_URL
 
 
 def calculate_sha256(content: bytes) -> str:
@@ -68,7 +68,7 @@ def ingest_match(match_id: int) -> dict:
 
     url = EVENTS_URL.format(match_id=match_id)
 
-    response = requests.get(url, timeout=30)
+    response = requests.get(url, timeout=HTTP_TIMEOUT_SECONDS)
     response.raise_for_status()
 
     raw_content = response.content

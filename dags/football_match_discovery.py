@@ -11,10 +11,12 @@ from airflow.providers.standard.operators.trigger_dagrun import (
 
 
 
+from src.config.settings import INGESTION_MANIFEST_PATH
+
+
 logger = logging.getLogger("airflow.task")
 
-
-MANIFEST_PATH = Path("data/metadata/ingestion_manifest.jsonl")
+MANIFEST_PATH = INGESTION_MANIFEST_PATH
 
 def get_ingested_match_ids() -> set[int]:
     """Get the last ingested match ID from the database."""

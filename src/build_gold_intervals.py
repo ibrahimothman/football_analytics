@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.config.settings import GOLD_DIR
+
 
 logger = logging.getLogger(__name__)
-
-GOLD_DIR = Path("data/gold")
 
 INTERVAL_MINUTES = 5
 METRIC_VERSION = "1.0"

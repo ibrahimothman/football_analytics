@@ -9,11 +9,10 @@ from pathlib import Path
 import pandas as pd
 
 from src.quality.reconcilation import reconcile_silver_to_gold_team
+from src.config.settings import GOLD_DIR
 
 
 logger = logging.getLogger(__name__)
-
-GOLD_DIR = Path("data/gold")
 
 METRIC_VERSION = "1.0"
 

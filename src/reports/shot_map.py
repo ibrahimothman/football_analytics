@@ -12,7 +12,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-REPORTS_DIR = Path("reports")
+from src.config.settings import REPORTS_ROOT
+
+
+REPORTS_DIR = REPORTS_ROOT
 
 
 def _marker_sizes(

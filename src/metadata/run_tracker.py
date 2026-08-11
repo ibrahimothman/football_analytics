@@ -8,10 +8,9 @@ from typing import Any
 from uuid import uuid4
 import json
 
-
-PIPELINE_RUNS_PATH = Path("data/metadata/pipeline_runs.jsonl")
-PIPELINE_STAGE_RUNS_PATH = Path(
-    "data/metadata/pipeline_stage_runs.jsonl"
+from src.config.settings import (
+    PIPELINE_RUNS_PATH,
+    PIPELINE_STAGE_RUNS_PATH,
 )
 
 
