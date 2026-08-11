@@ -56,4 +56,5 @@ jobs:
             football-airflow-ci \
             bash -c \
             'airflow dags list-import-errors --local --output=json' \
+            | grep '^\[.*\]$' \
             | jq -e 'select(type=="array" and length == 0)'
