@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.quality.reconcilation import reconcile_silver_to_gold_team
+
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +124,7 @@ def calculate_team_metrics(
     return pd.DataFrame(rows)
 
 
-def validate_gold(
+def run_gold_dq_checks(
     df: pd.DataFrame,
 ) -> None:
     """Validate team-match metrics."""
@@ -194,7 +196,9 @@ def build_gold(
         events
     )
 
-    validate_gold(metrics)
+
+    run_gold_dq_checks(metrics)
+    reconcile_silver_to_gold_team(events, metrics)
 
     match_directory = (
         GOLD_DIR
