@@ -15,6 +15,10 @@ from src.config.settings import (
     SERVING_DIR as SETTINGS_SERVING_DIR,
     STATSBOMB_MATCHES_URL,
 )
+from src.discover_matches import (
+    COMPETITION_ID,
+    SEASON_ID,
+)
 from src.utils import nested_value
 
 
@@ -136,9 +140,52 @@ def build_dim_match_frame(
     ]
     return pd.DataFrame(rows, columns=DIM_MATCH_COLUMNS)
 
+
+def validate_dim_match_grain(
+    df: pd.DataFrame,
+) -> None:
+    """Ensure serving grain is unique on match_id."""
+
+    if df.empty:
+        raise ValueError("dim_match is empty.")
+
+    missing = [
+        column
+        for column in DIM_MATCH_COLUMNS
+        if column not in df.columns
+    ]
+
+    if missing:
+        raise ValueError(
+            "dim_match missing columns: "
+            + ", ".join(missing)
+        )
+
+    if df[GRAIN_KEY].isna().any():
+        raise ValueError(
+            "dim_match contains null match_id values."
+        )
+
+    duplicated = df.duplicated(
+        subset=[GRAIN_KEY],
+        keep=False,
+    )
+
+    if duplicated.any():
+        dupes = sorted(
+            df.loc[duplicated, GRAIN_KEY]
+            .drop_duplicates()
+            .tolist()
+        )
+        raise ValueError(
+            "Duplicate match_id rows in dim_match: "
+            f"{dupes}"
+        )
+
+
 def build_dim_match(
-    competition_id: int,
-    season_id: int,
+    competition_id: int = COMPETITION_ID,
+    season_id: int = SEASON_ID,
 ) -> Path:
     """Build dim_match.parquet (1 row = 1 match)."""
 
@@ -146,34 +193,38 @@ def build_dim_match(
         competition_id=competition_id,
         season_id=season_id,
     )
-    new_df = build_dim_match_frame(matches)
+    incoming = build_dim_match_frame(matches)
 
     SERVING_DIR.mkdir(parents=True, exist_ok=True)
     output_path = SERVING_DIR / DIM_MATCH_FILENAME
 
     if output_path.exists():
         existing = pd.read_parquet(output_path)
-        dim = pd.concat([existing, new_df], ignore_index=True)
+        dim = pd.concat(
+            [existing, incoming],
+            ignore_index=True,
+        )
         logger.info(
             "dim_match_merged_with_existing",
             extra={
                 "existing_rows": len(existing),
-                "incoming_rows": len(new_df),
+                "incoming_rows": len(incoming),
                 "merged_rows": len(dim),
             },
         )
     else:
-        dim = new_df
+        dim = incoming
 
     dim = dim.drop_duplicates(
         subset=[GRAIN_KEY],
         keep="last",
-    )    
+    )
+    dim = dim.sort_values(
+        ["match_date", "match_id"],
+        kind="mergesort",
+    ).reset_index(drop=True)
 
-
-    if dim[GRAIN_KEY].duplicated().any():
-        raise ValueError("Duplicate match_id rows in dim_match.")
-
+    validate_dim_match_grain(dim)
     dim.to_parquet(output_path, index=False)
 
     logger.info(
@@ -186,7 +237,6 @@ def build_dim_match(
         },
     )
 
-    print(len(dim))
     return output_path
 
 
@@ -200,12 +250,12 @@ def main() -> None:
     parser.add_argument(
         "--competition-id",
         type=int,
-        required=True,
+        default=COMPETITION_ID,
     )
     parser.add_argument(
         "--season-id",
         type=int,
-        required=True,
+        default=SEASON_ID,
     )
     args = parser.parse_args()
 

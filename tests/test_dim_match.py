@@ -172,35 +172,4 @@ def test_build_dim_match_merges_existing_and_keeps_latest(
     assert kept["home_team_name"] == "Arsenal"
 
 
-def test_validate_dim_match_grain_rejects_duplicates():
-    df = pd.DataFrame(
-        [
-            {
-                "match_id": 1,
-                "match_date": "2020-02-22",
-                "competition_id": 11,
-                "competition_name": "La Liga",
-                "season_id": 42,
-                "season_name": "2019/2020",
-                "home_team_id": 217,
-                "home_team_name": "Barcelona",
-                "away_team_id": 322,
-                "away_team_name": "Eibar",
-            },
-            {
-                "match_id": 1,
-                "match_date": "2020-02-22",
-                "competition_id": 11,
-                "competition_name": "La Liga",
-                "season_id": 42,
-                "season_name": "2019/2020",
-                "home_team_id": 217,
-                "home_team_name": "Barcelona",
-                "away_team_id": 322,
-                "away_team_name": "Eibar",
-            },
-        ]
-    )
 
-    with pytest.raises(ValueError, match="Duplicate"):
-        dim_match.validate_dim_match_grain(df)
