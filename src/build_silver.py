@@ -10,12 +10,14 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from pyarrow import Int64Array
 
 from src.metrics.expected_threat import (
     XT_MODEL_VERSION,
     load_xt_grid,
     rate_move,
 )
+from src.contracts.silver import validate_silver_schema, validate_silver_type
 
 
 logger = logging.getLogger(__name__)
@@ -313,7 +315,7 @@ def check_attacking_direction_using_shots(
             },
         )
 
-def validate_silver(
+def run_silver_dq_checks(
     df: pd.DataFrame,
 ) -> None:
 
@@ -441,9 +443,15 @@ def build_silver(
     ]
 
     silver_df = pd.DataFrame(rows)
+    silver_df["player_id"] = silver_df["player_id"].astype("Int64")
 
-    validate_silver(silver_df)
+
+    validate_silver_schema(silver_df)
+    validate_silver_type(silver_df)
+    run_silver_dq_checks(silver_df)
     check_attacking_direction_using_shots(silver_df)
+
+    
 
     match_directory = (
         SILVER_DIR
