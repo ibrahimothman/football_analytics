@@ -6,7 +6,7 @@ import json
 
 import pandas as pd
 
-from src.config import MODELS_ROOT
+from src.config.settings import MODELS_ROOT
 
 
 MODEL_PATH = MODELS_ROOT / "xt" / "open_xt_12x8_v1.json"

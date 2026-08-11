@@ -9,7 +9,7 @@ from pathlib import Path
 
 import requests
 
-from src.config import MODELS_ROOT
+from src.config.settings import MODELS_ROOT
 
 
 MODEL_URL = (
