@@ -14,6 +14,7 @@ from src.config.settings import (
     BRONZE_DIR,
 )
 from src.metadata.manifest import read_manifest
+from src.utils import nested_value
 
 
 logger = logging.getLogger(__name__)
@@ -42,21 +43,6 @@ def get_latest_source(
         matches,
         key=lambda record: record["source_version"],
     )
-
-
-def nested_value(
-    data: dict[str, Any],
-    parent: str,
-    child: str,
-) -> Any:
-    """Safely extract a value from a nested object."""
-
-    parent_value = data.get(parent)
-
-    if not isinstance(parent_value, dict):
-        return None
-
-    return parent_value.get(child)
 
 
 def location_value(

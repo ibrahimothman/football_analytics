@@ -26,6 +26,7 @@ RAW_DIR = DATA_ROOT / "raw"
 BRONZE_DIR = DATA_ROOT / "bronze"
 SILVER_DIR = DATA_ROOT / "silver"
 GOLD_DIR = DATA_ROOT / "gold"
+SERVING_DIR = DATA_ROOT / "serving"
 METADATA_DIR = DATA_ROOT / "metadata"
 LOG_DIR = DATA_ROOT / "logs"
 
@@ -52,9 +53,22 @@ STATSBOMB_EVENTS_BASE_URL = os.getenv(
     ),
 )
 
+STATSBOMB_MATCHES_BASE_URL = os.getenv(
+    "STATSBOMB_MATCHES_BASE_URL",
+    (
+        "https://raw.githubusercontent.com/"
+        "statsbomb/open-data/master/data/matches"
+    ),
+)
+
 STATSBOMB_EVENTS_URL = (
     f"{STATSBOMB_EVENTS_BASE_URL.rstrip('/')}"
     "/{match_id}.json"
+)
+
+STATSBOMB_MATCHES_URL = (
+    f"{STATSBOMB_MATCHES_BASE_URL.rstrip('/')}"
+    "/{competition_id}/{season_id}.json"
 )
 
 HTTP_TIMEOUT_SECONDS = int(
