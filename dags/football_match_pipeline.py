@@ -136,7 +136,7 @@ INGEST_RETRY_POLICY = (IngestRetryPolicy())
             minimum=1,
         ),
     },
-    max_active_runs=2,
+    max_active_runs=5,
     on_failure_callback=dag_failure_callback,
     default_args={
         "on_failure_callback": task_failure_callback,
@@ -148,6 +148,7 @@ def football_match_pipeline():
 
     @task(
         task_id="ingest",
+        pool="statsbomb_api",
         retries=3,
         retry_delay=timedelta(seconds=30),
         execution_timeout=timedelta(minutes=2),

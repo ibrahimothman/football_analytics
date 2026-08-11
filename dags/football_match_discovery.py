@@ -73,7 +73,7 @@ def football_match_discovery()->list[int]:
                 },
                 "trigger_run_id": f"match_{match_id}",
             }
-            for match_id in new_matches[:2]
+            for match_id in new_matches[:5]
         ]
 
     new_match_configs = (
