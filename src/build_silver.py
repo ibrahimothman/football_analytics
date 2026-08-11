@@ -18,6 +18,7 @@ from src.metrics.expected_threat import (
     rate_move,
 )
 from src.contracts.silver import validate_silver_schema, validate_silver_type
+from src.quality.reconcilation import reconcile_bronze_to_silver
 
 
 logger = logging.getLogger(__name__)
@@ -448,6 +449,7 @@ def build_silver(
 
     validate_silver_schema(silver_df)
     validate_silver_type(silver_df)
+    reconcile_bronze_to_silver(bronze_df, silver_df)
     run_silver_dq_checks(silver_df)
     check_attacking_direction_using_shots(silver_df)
 
