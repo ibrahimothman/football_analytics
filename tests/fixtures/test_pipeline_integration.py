@@ -56,7 +56,10 @@ def test_raw_to_gold_pipeline(tmp_path: Path, monkeypatch: MonkeyPatch):
     # Redirect pipeline paths to temporary
     # test directories.
     #
-    monkeypatch.setattr(bronze, "MANIFEST_PATH", manifest_path)
+    monkeypatch.setattr(
+        "src.metadata.manifest.INGESTION_MANIFEST_PATH",
+        manifest_path,
+    )
     monkeypatch.setattr(bronze, "BRONZE_DIR", bronze_dir)
     monkeypatch.setattr(silver, "SILVER_DIR", silver_dir)
     monkeypatch.setattr(silver, "XT_MODEL_VERSION", "test_xt_model_v1")

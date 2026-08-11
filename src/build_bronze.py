@@ -12,14 +12,11 @@ import pandas as pd
 
 from src.config.settings import (
     BRONZE_DIR,
-    INGESTION_MANIFEST_PATH,
 )
 from src.metadata.manifest import read_manifest
 
 
 logger = logging.getLogger(__name__)
-
-MANIFEST_PATH = INGESTION_MANIFEST_PATH
 
 
 def get_latest_source(

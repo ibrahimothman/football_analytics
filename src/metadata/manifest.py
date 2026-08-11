@@ -11,6 +11,7 @@ from src.config.settings import INGESTION_MANIFEST_PATH
 def read_manifest(
     *,
     require_exists: bool = False,
+    
 ) -> list[dict]:
     """Read ingestion manifest records."""
 
