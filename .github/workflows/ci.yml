@@ -48,6 +48,7 @@ jobs:
           docker run --rm \
             -e PYTHONPATH=/opt/airflow \
             -e AIRFLOW__CORE__LOAD_EXAMPLES=False \
+            -e AIRFLOW__LOGGING__LOGGING_LEVEL=ERROR \
             -v "${{ github.workspace }}/dags:/opt/airflow/dags" \
             -v "${{ github.workspace }}/src:/opt/airflow/src" \
             -v "${{ github.workspace }}/data:/opt/airflow/data" \
@@ -56,5 +57,4 @@ jobs:
             football-airflow-ci \
             bash -c \
             'airflow dags list-import-errors --local --output=json' \
-            | grep '^\[.*\]$' \
             | jq -e 'select(type=="array" and length == 0)'
