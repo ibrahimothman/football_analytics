@@ -58,19 +58,16 @@ def test_raw_to_gold_pipeline(tmp_path: Path, monkeypatch: MonkeyPatch):
     #
     monkeypatch.setattr(bronze, "MANIFEST_PATH", manifest_path)
     monkeypatch.setattr(bronze, "BRONZE_DIR", bronze_dir)
-    monkeypatch.setattr(silver, "BRONZE_DIR", bronze_dir)
     monkeypatch.setattr(silver, "SILVER_DIR", silver_dir)
     monkeypatch.setattr(silver, "XT_MODEL_VERSION", "test_xt_model_v1")
     monkeypatch.setattr(silver, "load_xt_grid", create_mock_xt_grid)
-    monkeypatch.setattr(gold, "SILVER_DIR", silver_dir)
     monkeypatch.setattr(gold, "GOLD_DIR", gold_dir)
-    monkeypatch.setattr(gold_intervals, "SILVER_DIR", silver_dir)
     monkeypatch.setattr(gold_intervals, "GOLD_DIR", gold_dir)
 
-    bronze_path = bronze.build_bronze(MATCH_ID)
-    silver_path = silver.build_silver(MATCH_ID)
-    gold_path = gold.build_gold(MATCH_ID)
-    gold_intervals_path = gold_intervals.build_gold_intervals(MATCH_ID)
+    bronze_path = bronze.build_bronze(MATCH_ID, fixture_hash)
+    silver_path = silver.build_silver(MATCH_ID, bronze_path)
+    gold_path = gold.build_gold(MATCH_ID, silver_path)
+    gold_intervals_path = gold_intervals.build_gold_intervals(MATCH_ID, silver_path)
 
     # read output files
     bronze_df = pd.read_parquet(bronze_path)
