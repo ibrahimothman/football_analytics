@@ -39,26 +39,9 @@ Thumbs.db
 *.swp
 *.swo
 
-# Data artifacts (keep folder structure via .gitkeep)
-data/raw/*
-!data/raw/.gitkeep
-data/bronze/*
-!data/bronze/.gitkeep
-data/silver/*
-!data/silver/.gitkeep
-data/gold/*
-!data/gold/.gitkeep
-data/metadata/*
-!data/metadata/.gitkeep
-data/logs/*
-!data/logs/.gitkeep
-
-
-
-# Generated report outputs (keep report source scripts tracked)
-reports/**/*.png
-reports/**/*.pdf
-reports/**/*.html
+# Runtime data and generated report outputs
+data/
+reports/
 
 # Airflow runtime (keep dags/ and custom plugins tracked)
 logs/
