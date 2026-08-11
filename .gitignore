@@ -45,7 +45,7 @@ reports/
 
 # Airflow runtime (keep dags/ and custom plugins tracked)
 logs/
-config/
+/config/
 
 steps.txt
 alternative.txt
