@@ -1,4 +1,4 @@
-from src.build_gold import validate_gold
+from src.build_gold import run_gold_dq_checks
 import pandas as pd
 import pytest
 
@@ -27,4 +27,4 @@ def test_completed_passes_less_than_attempted():
     )
 
     with pytest.raises(ValueError):
-        validate_gold(df)
+        run_gold_dq_checks(df)
