@@ -17,6 +17,7 @@ from src.config.settings import (
     RAW_DIR,
     STATSBOMB_EVENTS_URL,
 )
+from src.metadata.manifest import read_manifest
 
 
 logger = logging.getLogger(__name__)
@@ -28,22 +29,6 @@ EVENTS_URL = STATSBOMB_EVENTS_URL
 def calculate_sha256(content: bytes) -> str:
     """Calculate SHA-256 hash for raw source bytes."""
     return hashlib.sha256(content).hexdigest()
-
-
-def read_manifest() -> list[dict]:
-    """Read existing source versions from the manifest."""
-
-    if not MANIFEST_PATH.exists():
-        return []
-
-    records = []
-
-    with MANIFEST_PATH.open("r", encoding="utf-8") as file:
-        for line in file:
-            if line.strip():
-                records.append(json.loads(line))
-
-    return records
 
 
 def find_existing_version(

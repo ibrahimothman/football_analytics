@@ -14,33 +14,12 @@ from src.config.settings import (
     BRONZE_DIR,
     INGESTION_MANIFEST_PATH,
 )
+from src.metadata.manifest import read_manifest
 
 
 logger = logging.getLogger(__name__)
 
 MANIFEST_PATH = INGESTION_MANIFEST_PATH
-
-
-def read_manifest() -> list[dict]:
-    """Read ingestion manifest records."""
-
-    if not MANIFEST_PATH.exists():
-        raise FileNotFoundError(
-            "Ingestion manifest does not exist. "
-            "Ingest a match first."
-        )
-
-    records = []
-
-    with MANIFEST_PATH.open(
-        "r",
-        encoding="utf-8",
-    ) as file:
-        for line in file:
-            if line.strip():
-                records.append(json.loads(line))
-
-    return records
 
 
 def get_latest_source(

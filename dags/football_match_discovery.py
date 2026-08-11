@@ -1,7 +1,4 @@
 import logging
-from pathlib import Path
-import json
-
 
 import pendulum
 from airflow.sdk import dag, task
@@ -9,27 +6,10 @@ from airflow.providers.standard.operators.trigger_dagrun import (
     TriggerDagRunOperator,
 )
 
-
-
-from src.config.settings import INGESTION_MANIFEST_PATH
+from src.metadata.manifest import load_ingested_match_ids
 
 
 logger = logging.getLogger("airflow.task")
-
-MANIFEST_PATH = INGESTION_MANIFEST_PATH
-
-def get_ingested_match_ids() -> set[int]:
-    """Get the last ingested match ID from the database."""
-    if not MANIFEST_PATH.exists():
-        return set()
-
-    ingested_match_ids = set()
-    with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
-        for line in f:
-            match_id = json.loads(line)["match_id"]
-            ingested_match_ids.add(int(match_id))
-    return ingested_match_ids
-        
 
 
 @dag(
@@ -44,49 +24,54 @@ def get_ingested_match_ids() -> set[int]:
     catchup=False,
     tags=["football", "discovery"],
 )
-def football_match_discovery()->list[int]:
+def football_match_discovery():
 
     @task(task_id="discover_matches")
-    def discover_matches() -> None:
+    def discover_matches() -> list[dict]:
         """Discover new matches to process."""
+
         from src.discover_matches import get_matches
-        
-        ingested_match_ids = get_ingested_match_ids()
-        available_matches = get_matches()["match_id"].tolist()
+
+        ingested_match_ids = load_ingested_match_ids()
+        available_matches = get_matches(
+            team_name="Arsenal",
+        )["match_id"].tolist()
+
         new_matches = [
             match_id
             for match_id in available_matches
             if match_id not in ingested_match_ids
         ]
 
-        logger.info(f"Discovered {len(available_matches)} matches to process.\
-        Unprocessed matches: {len(new_matches)}")
+        logger.info(
+            "Discovered %s matches to process. "
+            "Unprocessed matches: %s",
+            len(available_matches),
+            len(new_matches),
+        )
 
         logger.info(
             "New match IDs:\n%s",
-            "\n".join(str(match_id) for match_id in new_matches),
-            )
+            "\n".join(
+                str(match_id) for match_id in new_matches
+            ),
+        )
+
         return [
             {
                 "conf": {
-                    "match_id": match_id
+                    "match_id": match_id,
                 },
                 "trigger_run_id": f"match_{match_id}",
             }
             for match_id in new_matches[:5]
         ]
 
-    new_match_configs = (
-        discover_matches()
-    )
+    new_match_configs = discover_matches()
 
     TriggerDagRunOperator.partial(
         task_id="trigger_match_pipeline",
-
-        trigger_dag_id=(
-            "football_match_pipeline"
-        ),
-
+        trigger_dag_id="football_match_pipeline",
         wait_for_completion=False,
     ).expand_kwargs(
         new_match_configs
