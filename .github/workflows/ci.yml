@@ -49,12 +49,12 @@ jobs:
             -e PYTHONPATH=/opt/airflow \
             -e AIRFLOW__CORE__LOAD_EXAMPLES=False \
             -e AIRFLOW__LOGGING__LOGGING_LEVEL=ERROR \
+            -e AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////tmp/airflow-ci.db \
             -v "${{ github.workspace }}/dags:/opt/airflow/dags" \
             -v "${{ github.workspace }}/src:/opt/airflow/src" \
             -v "${{ github.workspace }}/data:/opt/airflow/data" \
             -v "${{ github.workspace }}/models:/opt/airflow/models" \
             -v "${{ github.workspace }}/reports:/opt/airflow/reports" \
+            -v "${{ github.workspace }}/scripts/validate_dags.py:/opt/airflow/validate_dags.py" \
             football-airflow-ci \
-            bash -c \
-            'airflow dags list-import-errors --local --output=json' \
-            | jq -e 'select(type=="array" and length == 0)'
+            python /opt/airflow/validate_dags.py
