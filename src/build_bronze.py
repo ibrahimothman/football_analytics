@@ -13,36 +13,24 @@ import pandas as pd
 from src.config.settings import (
     BRONZE_DIR,
 )
-from src.metadata.manifest import read_manifest
-from src.utils import nested_value
-
 
 logger = logging.getLogger(__name__)
 
 
-def get_latest_source(
-    match_id: int,
-    file_hash: str,
-) -> dict:
-    """Return latest ingested source version for a match."""
 
-    manifest = read_manifest()
+def nested_value(
+    data: dict[str, Any],
+    parent: str,
+    child: str,
+) -> Any:
+    """Safely extract a value from a nested object."""
 
-    matches = [
-        record
-        for record in manifest
-        if record["match_id"] == match_id and record["file_hash"] == file_hash
-    ]
+    parent_value = data.get(parent)
 
-    if not matches:
-        raise ValueError(
-            f"Match {match_id} with file hash {file_hash} has not been ingested."
-        )
+    if not isinstance(parent_value, dict):
+        return None
 
-    return max(
-        matches,
-        key=lambda record: record["source_version"],
-    )
+    return parent_value.get(child)
 
 
 def location_value(
@@ -192,11 +180,9 @@ def event_to_bronze_row(
 
 def build_bronze(
     match_id: int,
-    file_hash: str,
+    source: dict,
 ) -> Path:
     """Build Bronze Parquet for latest source version."""
-
-    source = get_latest_source(match_id, file_hash)
 
     raw_path = Path(source["raw_path"])
 
