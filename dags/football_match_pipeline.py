@@ -188,7 +188,7 @@ def football_match_pipeline():
 
         bronze_path = build_bronze(
             match_id=artifact["match_id"],
-            file_hash=artifact["file_hash"],
+            source=artifact,
         )
 
         logger.info(

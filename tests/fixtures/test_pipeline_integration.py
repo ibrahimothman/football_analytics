@@ -67,7 +67,7 @@ def test_raw_to_gold_pipeline(tmp_path: Path, monkeypatch: MonkeyPatch):
     monkeypatch.setattr(gold, "GOLD_DIR", gold_dir)
     monkeypatch.setattr(gold_intervals, "GOLD_DIR", gold_dir)
 
-    bronze_path = bronze.build_bronze(MATCH_ID, fixture_hash)
+    bronze_path = bronze.build_bronze(MATCH_ID, manifest_record)
     silver_path = silver.build_silver(MATCH_ID, bronze_path)
     gold_path = gold.build_gold(MATCH_ID, silver_path)
     gold_intervals_path = gold_intervals.build_gold_intervals(MATCH_ID, silver_path)
