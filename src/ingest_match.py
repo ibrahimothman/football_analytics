@@ -102,7 +102,7 @@ def ingest_match(match_id: int) -> dict:
         "source_version": source_version,
         "source_url": url,
         "file_hash": file_hash,
-        "raw_path": str(raw_path),
+        "raw_path": raw_path.as_posix(),
         "ingested_at": datetime.now(timezone.utc).isoformat(),
     }
 
