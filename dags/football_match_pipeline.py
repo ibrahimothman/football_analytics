@@ -2,6 +2,8 @@ import logging
 from datetime import timedelta
 from pathlib import Path
 
+import pyarrow.parquet as pq
+
 import requests
 
 
@@ -24,6 +26,8 @@ from src.build_gold import build_gold
 from src.build_gold_intervals import build_gold_intervals
 from src.generate_reports import generate_reports
 from src.observability.airflow_callbacks import dag_failure_callback, task_failure_callback, task_retry_callback
+from src.observability.stage_observer import observe_stage
+
 
 logger = logging.getLogger("airflow.task")
 
@@ -116,7 +120,16 @@ class IngestRetryPolicy(RetryPolicy):
         )
 
 
-INGEST_RETRY_POLICY = (IngestRetryPolicy())        
+INGEST_RETRY_POLICY = (IngestRetryPolicy())    
+
+
+
+def count_praquet_rows(path: Path) -> int:
+    return (
+        pq.ParquetFile(path)
+        .metadata
+        .num_rows
+    )
 
 @dag(
     dag_id="football_match_pipeline",
@@ -180,94 +193,130 @@ def football_match_pipeline():
 
     @task(task_id="bronze")
     def bronze(artifact: dict) -> dict:
+        context = get_current_context()
+        task_instance = context["ti"]
 
-        logger.info(
-            "Starting to build bronze for match %s",
-            str(artifact["match_id"])+artifact["file_hash"],
-        )
-
-        bronze_path = build_bronze(
+        with observe_stage(
+            airflow_run_id=context["dag_run"].run_id,
+            dag_id=task_instance.dag_id,
+            task_id=task_instance.task_id,
+            try_number=task_instance.try_number,
             match_id=artifact["match_id"],
-            source=artifact,
-        )
+            stage="BRONZE",
+        ) as metrics:
+            bronze_path = build_bronze(
+                match_id=artifact["match_id"],
+                source=artifact,
+            )
 
-        logger.info(
-            "Finished building bronze for match %s",
-            str(artifact["match_id"])+artifact["file_hash"],
-        )
+            metrics["rows_out"] = count_praquet_rows(
+                bronze_path
+            )
 
-        return {
-            **artifact,
-            "bronze_path": str(bronze_path),
-        }
+            return {
+                **artifact,
+                "bronze_path": str(bronze_path),
+            }
 
     @task(task_id="silver")
     def silver(artifact: dict) -> str:
+        bronze_path = Path(artifact["bronze_path"])
 
-        logger.info(
-            "Starting to build silver for match %s",
-            str(artifact["match_id"])+artifact["file_hash"],
-        )
+        context = get_current_context()
+        task_instance = context["ti"]
 
-        silver_path = build_silver(
+        with observe_stage(
+            airflow_run_id=context["dag_run"].run_id,
+            dag_id=task_instance.dag_id,
+            task_id=task_instance.task_id,
+            try_number=task_instance.try_number,
             match_id=artifact["match_id"],
-            bronze_path=Path(artifact["bronze_path"]),
-        )
+            stage="SILVER",
+        ) as metrics:
 
-        logger.info(
-            "Finished building silver for match %s",
-            str(artifact["match_id"])+artifact["file_hash"],
-        )
+            rows_in = count_praquet_rows(bronze_path)
+            metrics["rows_in"] = rows_in
 
-        return {
-            **artifact,
-            "silver_path": str(silver_path),
-        }
+            silver_path = build_silver(
+                match_id=artifact["match_id"],
+                bronze_path=bronze_path,
+            )
+
+            rows_out = count_praquet_rows(silver_path)
+            metrics["rows_out"] = rows_out
+
+            return {
+                **artifact,
+                "silver_path": str(silver_path),
+            }
 
     @task(task_id="gold")
     def gold(artifact: dict) -> str:
+        silver_path = Path(artifact["silver_path"])
 
-        logger.info(
-            "Starting to build gold team for match %s",
-            str(artifact["match_id"])+artifact["file_hash"],
-        )
+        context = get_current_context()
+        task_instance = context["ti"]
 
-        gold_path = build_gold(
+        with observe_stage(
+            airflow_run_id=context["dag_run"].run_id,
+            dag_id=task_instance.dag_id,
+            task_id=task_instance.task_id,
+            try_number=task_instance.try_number,
             match_id=artifact["match_id"],
-            silver_path=Path(artifact["silver_path"]),
-        )
+            stage="GOLD_TEAM",
+        ) as metrics:
+            metrics["rows_in"] = count_praquet_rows(
+                silver_path
+            )
 
-        logger.info(
-            "Finished building gold team for match %s",
-            str(artifact["match_id"])+artifact["file_hash"],
-        )
+            gold_path = build_gold(
+                match_id=artifact["match_id"],
+                silver_path=silver_path,
+            )
 
-        return {
-            **artifact,
-            "gold_path": str(gold_path),
-        }
+            metrics["rows_out"] = count_praquet_rows(
+                gold_path
+            )
+
+            return {
+                **artifact,
+                "gold_path": str(gold_path),
+            }
 
     @task(task_id="gold_intervals")
     def gold_intervals(artifact: dict) -> str:
-        logger.info(
-            "Starting to build gold intervals for match %s",
-            str(artifact["match_id"])+artifact["file_hash"],
-        )
+        silver_path = Path(artifact["silver_path"])
 
-        gold_intervals_path = build_gold_intervals(
+        context = get_current_context()
+        task_instance = context["ti"]
+
+        with observe_stage(
+            airflow_run_id=context["dag_run"].run_id,
+            dag_id=task_instance.dag_id,
+            task_id=task_instance.task_id,
+            try_number=task_instance.try_number,
             match_id=artifact["match_id"],
-            silver_path=Path(artifact["silver_path"]),
-        )
+            stage="GOLD_INTERVAL",
+        ) as metrics:
+            metrics["rows_in"] = count_praquet_rows(
+                silver_path
+            )
 
-        logger.info(
-            "Finished building gold intervals for match %s",
-            str(artifact["match_id"])+artifact["file_hash"],
-        )
+            gold_intervals_path = build_gold_intervals(
+                match_id=artifact["match_id"],
+                silver_path=silver_path,
+            )
 
-        return {
-            **artifact,
-            "gold_intervals_path": str(gold_intervals_path),
-        }
+            metrics["rows_out"] = count_praquet_rows(
+                gold_intervals_path
+            )
+
+            return {
+                **artifact,
+                "gold_intervals_path": str(
+                    gold_intervals_path
+                ),
+            }
 
     @task(task_id="reports")
     def reports(team_artifact: dict, intervals_artifact: dict) -> int:
@@ -290,20 +339,39 @@ def football_match_pipeline():
                 "different source versions."
             )
 
-        logger.info(f"Starting to generate reports for match {team_artifact['match_id']}")
+        context = get_current_context()
+        task_instance = context["ti"]
 
-        reports_paths = generate_reports(
+        with observe_stage(
+            airflow_run_id=context["dag_run"].run_id,
+            dag_id=task_instance.dag_id,
+            task_id=task_instance.task_id,
+            try_number=task_instance.try_number,
             match_id=team_artifact["match_id"],
-            silver_path=Path(team_artifact["silver_path"]),
-            gold_path=Path(team_artifact["gold_path"]),
-            gold_intervals_path=Path(intervals_artifact["gold_intervals_path"]),
-        )
+            stage="REPORTS",
+        ):
+            reports_paths = generate_reports(
+                match_id=team_artifact["match_id"],
+                silver_path=Path(
+                    team_artifact["silver_path"]
+                ),
+                gold_path=Path(
+                    team_artifact["gold_path"]
+                ),
+                gold_intervals_path=Path(
+                    intervals_artifact[
+                        "gold_intervals_path"
+                    ]
+                ),
+            )
 
-        return {
-            **team_artifact,
-            **intervals_artifact,
-            "reports_paths": [str(path) for path in reports_paths],
-        }
+            return {
+                **team_artifact,
+                **intervals_artifact,
+                "reports_paths": [
+                    str(path) for path in reports_paths
+                ],
+            }
 
     ingested_match_id = ingest()
     bronze_artifact = bronze(ingested_match_id)
