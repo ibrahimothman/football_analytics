@@ -1,8 +1,5 @@
 import logging
 from datetime import timedelta
-from pathlib import Path
-
-import pyarrow.parquet as pq
 
 import requests
 
@@ -27,6 +24,7 @@ from src.build_gold_intervals import build_gold_intervals
 from src.generate_reports import generate_reports
 from src.observability.airflow_callbacks import dag_failure_callback, task_failure_callback, task_retry_callback
 from src.observability.stage_observer import observe_stage
+from src.storage.storage_store import count_parquet_rows
 
 
 logger = logging.getLogger("airflow.task")
@@ -124,12 +122,7 @@ INGEST_RETRY_POLICY = (IngestRetryPolicy())
 
 
 
-def count_praquet_rows(path: Path) -> int:
-    return (
-        pq.ParquetFile(path)
-        .metadata
-        .num_rows
-    )
+
 
 @dag(
     dag_id="football_match_pipeline",
@@ -204,23 +197,23 @@ def football_match_pipeline():
             match_id=artifact["match_id"],
             stage="BRONZE",
         ) as metrics:
-            bronze_path = build_bronze(
+            bronze_uri = build_bronze(
                 match_id=artifact["match_id"],
                 source=artifact,
             )
 
-            metrics["rows_out"] = count_praquet_rows(
-                bronze_path
+            metrics["rows_out"] = count_parquet_rows(
+                uri=bronze_uri,
             )
 
             return {
                 **artifact,
-                "bronze_path": str(bronze_path),
+                "bronze_uri": bronze_uri,
             }
 
     @task(task_id="silver")
     def silver(artifact: dict) -> str:
-        bronze_path = Path(artifact["bronze_path"])
+        bronze_uri = artifact["bronze_uri"]
 
         context = get_current_context()
         task_instance = context["ti"]
@@ -234,25 +227,23 @@ def football_match_pipeline():
             stage="SILVER",
         ) as metrics:
 
-            rows_in = count_praquet_rows(bronze_path)
-            metrics["rows_in"] = rows_in
-
-            silver_path = build_silver(
+            silver_uri = build_silver(
                 match_id=artifact["match_id"],
-                bronze_path=bronze_path,
+                bronze_uri=bronze_uri,
             )
 
-            rows_out = count_praquet_rows(silver_path)
-            metrics["rows_out"] = rows_out
+            metrics["rows_out"] = count_parquet_rows(
+                uri=silver_uri,
+            )
 
             return {
                 **artifact,
-                "silver_path": str(silver_path),
+                "silver_uri": silver_uri,
             }
 
     @task(task_id="gold")
     def gold(artifact: dict) -> str:
-        silver_path = Path(artifact["silver_path"])
+        silver_uri = artifact["silver_uri"]
 
         context = get_current_context()
         task_instance = context["ti"]
@@ -265,27 +256,27 @@ def football_match_pipeline():
             match_id=artifact["match_id"],
             stage="GOLD_TEAM",
         ) as metrics:
-            metrics["rows_in"] = count_praquet_rows(
-                silver_path
+            metrics["rows_in"] = count_parquet_rows(
+                uri=silver_uri,
             )
 
-            gold_path = build_gold(
+            gold_uri = build_gold(
                 match_id=artifact["match_id"],
-                silver_path=silver_path,
+                silver_uri=silver_uri,
             )
 
-            metrics["rows_out"] = count_praquet_rows(
-                gold_path
+            metrics["rows_out"] = count_parquet_rows(
+                uri=gold_uri,
             )
 
             return {
                 **artifact,
-                "gold_path": str(gold_path),
+                "gold_uri": gold_uri,
             }
 
     @task(task_id="gold_intervals")
     def gold_intervals(artifact: dict) -> str:
-        silver_path = Path(artifact["silver_path"])
+        silver_uri = artifact["silver_uri"]
 
         context = get_current_context()
         task_instance = context["ti"]
@@ -298,24 +289,22 @@ def football_match_pipeline():
             match_id=artifact["match_id"],
             stage="GOLD_INTERVAL",
         ) as metrics:
-            metrics["rows_in"] = count_praquet_rows(
-                silver_path
+            metrics["rows_in"] = count_parquet_rows(
+                uri=silver_uri,
             )
 
-            gold_intervals_path = build_gold_intervals(
+            gold_intervals_uri = build_gold_intervals(
                 match_id=artifact["match_id"],
-                silver_path=silver_path,
+                silver_uri=silver_uri,
             )
 
-            metrics["rows_out"] = count_praquet_rows(
-                gold_intervals_path
+            metrics["rows_out"] = count_parquet_rows(
+                uri=gold_intervals_uri,
             )
 
             return {
                 **artifact,
-                "gold_intervals_path": str(
-                    gold_intervals_path
-                ),
+                "gold_intervals_uri": gold_intervals_uri,
             }
 
     @task(task_id="reports")
@@ -352,17 +341,11 @@ def football_match_pipeline():
         ):
             reports_paths = generate_reports(
                 match_id=team_artifact["match_id"],
-                silver_path=Path(
-                    team_artifact["silver_path"]
-                ),
-                gold_path=Path(
-                    team_artifact["gold_path"]
-                ),
-                gold_intervals_path=Path(
-                    intervals_artifact[
-                        "gold_intervals_path"
-                    ]
-                ),
+                silver_uri=team_artifact["silver_uri"],
+                gold_uri=team_artifact["gold_uri"],
+                gold_intervals_uri=intervals_artifact[
+                    "gold_intervals_uri"
+                ],
             )
 
             return {

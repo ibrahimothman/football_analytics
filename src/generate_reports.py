@@ -24,26 +24,26 @@ logger = logging.getLogger(__name__)
 
 def generate_reports(
     match_id: int,
-    silver_path: Path,
-    gold_path: Path,
-    gold_intervals_path: Path,
+    silver_uri: str,
+    gold_uri: str,
+    gold_intervals_uri: str,
 ) -> list[Path]:
 
     outputs = [
         generate_match_summary(
-            gold_path
+            gold_uri
         ),
 
         generate_shot_map(
-            silver_path
+            silver_uri
         ),
 
         generate_xg_timeline(
-            silver_path
+            silver_uri
         ),
 
         generate_xt_momentum(
-            gold_intervals_path
+            gold_intervals_uri
         ),
     ]
 

@@ -220,7 +220,7 @@ def run_pipeline(match_id: int) -> str:
             stage_run.rows_out
         )
 
-        stage_run, bronze_path = run_stage(
+        stage_run, bronze_uri = run_stage(
             run_id=run_id,
             match_id=match_id,
             rows_in=resolve_rows_in(
@@ -237,7 +237,7 @@ def run_pipeline(match_id: int) -> str:
             stage_run.rows_out
         )
 
-        stage_run, silver_path = run_stage(
+        stage_run, silver_uri = run_stage(
             run_id=run_id,
             match_id=match_id,
             rows_in=resolve_rows_in(
@@ -247,14 +247,14 @@ def run_pipeline(match_id: int) -> str:
             stage=PipelineRunStage.SILVER,
             call=lambda: build_silver(
                 match_id=match_id,
-                bronze_path=bronze_path,
+                bronze_uri=bronze_uri,
             ),
         )
         rows_by_stage[PipelineRunStage.SILVER] = (
             stage_run.rows_out
         )
 
-        stage_run, gold_path = run_stage(
+        stage_run, gold_uri = run_stage(
             run_id=run_id,
             match_id=match_id,
             rows_in=resolve_rows_in(
@@ -264,14 +264,14 @@ def run_pipeline(match_id: int) -> str:
             stage=PipelineRunStage.GOLD_TEAM,
             call=lambda: build_gold(
                 match_id=match_id,
-                silver_path=silver_path,
+                silver_uri=silver_uri,
             ),
         )
         rows_by_stage[PipelineRunStage.GOLD_TEAM] = (
             stage_run.rows_out
         )
 
-        stage_run, gold_intervals_path = run_stage(
+        stage_run, gold_intervals_uri = run_stage(
             run_id=run_id,
             match_id=match_id,
             rows_in=resolve_rows_in(
@@ -281,7 +281,7 @@ def run_pipeline(match_id: int) -> str:
             stage=PipelineRunStage.GOLD_INTERVAL,
             call=lambda: build_gold_intervals(
                 match_id=match_id,
-                silver_path=silver_path,
+                silver_uri=silver_uri,
             ),
         )
         rows_by_stage[PipelineRunStage.GOLD_INTERVAL] = (
@@ -298,9 +298,9 @@ def run_pipeline(match_id: int) -> str:
             stage=PipelineRunStage.REPORTS,
             call=lambda: generate_reports(
                 match_id=match_id,
-                silver_path=silver_path,
-                gold_path=gold_path,
-                gold_intervals_path=gold_intervals_path,
+                silver_uri=silver_uri,
+                gold_uri=gold_uri,
+                gold_intervals_uri=gold_intervals_uri,
             ),
         )
         rows_by_stage[PipelineRunStage.REPORTS] = (

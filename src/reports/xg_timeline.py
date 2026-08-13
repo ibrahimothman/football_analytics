@@ -12,6 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from src.config.settings import REPORTS_ROOT
+from src.storage.storage_store import read_parquet
 
 
 REPORTS_DIR = REPORTS_ROOT
@@ -57,12 +58,12 @@ def prepare_xg_timeline(
 
 
 def generate_xg_timeline(
-    silver_path: Path,
+    silver_uri: str,
 ) -> Path:
     """Generate cumulative xG timeline for both teams."""
 
-    events = pd.read_parquet(
-        silver_path
+    events = read_parquet(
+        uri=silver_uri,
     )
 
     match_id = int(

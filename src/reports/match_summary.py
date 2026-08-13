@@ -5,23 +5,23 @@ from __future__ import annotations
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import pandas as pd
 import logging
 
 logger = logging.getLogger(__name__)   
 
 from src.config.settings import REPORTS_ROOT
+from src.storage.storage_store import read_parquet
 
 
 REPORTS_DIR = REPORTS_ROOT
 
 
 def generate_match_summary(
-    gold_path: Path,
+    gold_uri: str,
 ) -> Path:
     """Generate a simple match summary image."""
 
-    df = pd.read_parquet(gold_path)
+    df = read_parquet(uri=gold_uri)
 
     if len(df) != 2:
         raise ValueError(

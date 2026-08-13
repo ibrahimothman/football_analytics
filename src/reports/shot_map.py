@@ -13,6 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from src.config.settings import REPORTS_ROOT
+from src.storage.storage_store import read_parquet
 
 
 REPORTS_DIR = REPORTS_ROOT
@@ -104,12 +105,12 @@ def _plot_team_shots(
 
 
 def generate_shot_map(
-    silver_path: Path,
+    silver_uri: str,
 ) -> Path:
     """Generate analyst-style two-panel shot map."""
 
-    df = pd.read_parquet(
-        silver_path
+    df = read_parquet(
+        uri=silver_uri,
     )
 
     shots = df[

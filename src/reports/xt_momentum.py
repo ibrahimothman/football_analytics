@@ -12,6 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from src.config.settings import REPORTS_ROOT
+from src.storage.storage_store import read_parquet
 
 
 REPORTS_DIR = REPORTS_ROOT
@@ -42,12 +43,12 @@ INTERVAL_ORDER = [
 
 
 def generate_xt_momentum(
-    gold_intervals_path: Path,
+    gold_intervals_uri: str,
 ) -> Path:
     """Generate xT threat momentum chart from Gold interval metrics."""
 
-    df = pd.read_parquet(
-        gold_intervals_path
+    df = read_parquet(
+        uri=gold_intervals_uri,
     )
 
     if df.empty:
