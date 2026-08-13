@@ -390,6 +390,27 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  football-db:
+    image: postgres:17
+
+    environment:
+      POSTGRES_DB: football
+      POSTGRES_USER: football
+      POSTGRES_PASSWORD: ${FOOTBALL_DB_PASSWORD}
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - football-db-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U football -d football"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 volumes:
   postgres-db-volume:
   minio-data:
+  football-db-data:
