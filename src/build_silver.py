@@ -8,6 +8,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
+from io import BytesIO
 
 import pandas as pd
 
@@ -21,7 +22,10 @@ from src.contracts.silver import (
     validate_silver_type,
 )
 from src.quality.reconcilation import reconcile_bronze_to_silver
-from src.config.settings import SILVER_DIR
+from src.storage.storage_store import (
+    read_parquet,
+    write_parquet,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -425,16 +429,11 @@ def run_silver_dq_checks(
 
 def build_silver(
     match_id: int,
-    bronze_path: Path,
-) -> Path:
+    bronze_uri: str,
+) -> str:
 
-    if not bronze_path.exists():
-        raise FileNotFoundError(
-            f"Bronze artifact not found at {bronze_path}"
-        )
-
-    bronze_df = pd.read_parquet(
-        bronze_path
+    bronze_df = read_parquet(
+        uri=bronze_uri,
     )
 
 
@@ -454,42 +453,27 @@ def build_silver(
     run_silver_dq_checks(silver_df)
     check_attacking_direction_using_shots(silver_df)
 
-    
-
-    match_directory = (
-        SILVER_DIR
-        / f"match_id={match_id}"
-    )
-
-    match_directory.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
     file_hash = (
         silver_df["file_hash"]
-        .iloc[0][:12]
+        .iloc[0]
     )
+    
+    key = f"silver/match_id={match_id}/events_{file_hash[:12]}.parquet"
 
-    silver_path = (
-        match_directory
-        / f"events_{file_hash}.parquet"
-    )
-
-    silver_df.to_parquet(
-        silver_path,
-        index=False,
+    silver_uri = write_parquet(
+        key=key,
+        df=silver_df,
     )
 
     logger.info(
         "silver_build_succeeded",
         extra={
             "rows_out": len(silver_df),
-            "output_path": str(silver_path),
+            "output_uri": silver_uri,
         },
     )
 
-    return silver_path   
+    return silver_uri
 
 def main() -> None:
     parser = argparse.ArgumentParser()

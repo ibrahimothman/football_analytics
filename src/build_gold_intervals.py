@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 import logging
-from pathlib import Path
 
 import pandas as pd
 
-from src.config.settings import GOLD_DIR
+from src.storage.storage_store import (
+    read_parquet,
+    write_parquet,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -421,16 +423,11 @@ def validate_intervals(
 
 def build_gold_intervals(
     match_id: int,
-    silver_path: Path,
-) -> Path:
+    silver_uri: str,
+) -> str:
 
-    if not silver_path.exists():
-        raise FileNotFoundError(
-            f"Silver artifact not found at {silver_path}"
-        )
-
-    events = pd.read_parquet(
-        silver_path
+    events = read_parquet(
+        uri=silver_uri,
     )
 
     metrics = calculate_interval_metrics(
@@ -460,40 +457,30 @@ def build_gold_intervals(
 
     validate_intervals(metrics)
 
-    match_directory = (
-        GOLD_DIR
-        / f"match_id={match_id}"
-    )
-
-    match_directory.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
     short_hash = (
         events["file_hash"]
         .iloc[0][:12]
     )
 
-    output_path = (
-        match_directory
-        / f"team_intervals_{short_hash}.parquet"
+    key = (
+        f"gold/match_id={match_id}/"
+        f"team_intervals_{short_hash}.parquet"
     )
 
-    metrics.to_parquet(
-        output_path,
-        index=False,
+    gold_intervals_uri = write_parquet(
+        key=key,
+        df=metrics,
     )
 
     logger.info(
         "gold_interval_build_succeeded",
         extra={
             "intervals": len(metrics),
-            "output_path": str(output_path),
+            "output_uri": gold_intervals_uri,
         },
     )
 
-    return output_path       
+    return gold_intervals_uri
 
 
 def main() -> None:

@@ -7,6 +7,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
+from io import BytesIO
 
 import pandas as pd
 
@@ -15,6 +16,8 @@ from src.config.settings import (
 )
 from src.storage.storage_store import (
     get_bytes,
+    put_bytes,
+    write_parquet,
 )
 
 logger = logging.getLogger(__name__)
@@ -184,7 +187,7 @@ def event_to_bronze_row(
 def build_bronze(
     match_id: int,
     source: dict,
-) -> Path:
+) -> str:
     """Build Bronze Parquet for latest source version."""
 
     raw_uri = source["raw_uri"]
@@ -210,26 +213,14 @@ def build_bronze(
 
     bronze_df = pd.DataFrame(rows)
 
-    match_directory = (
-        BRONZE_DIR
-        / f"match_id={match_id}"
-    )
-
-    match_directory.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
 
     short_hash = source["file_hash"][:12]
 
-    bronze_path = (
-        match_directory
-        / f"events_{short_hash}.parquet"
-    )
+    key = f"bronze/match_id={match_id}/events_{short_hash}.parquet"
 
-    bronze_df.to_parquet(
-        bronze_path,
-        index=False,
+    bronze_uri = write_parquet(
+        key=key,
+        df=bronze_df,
     )
 
     logger.info(
@@ -238,11 +229,11 @@ def build_bronze(
             "source_uri": raw_uri,
             "events": len(bronze_df),
             "columns": len(bronze_df.columns),
-            "output_path": str(bronze_path),
+            "output_uri": bronze_uri,
         },
     )
 
-    return bronze_path
+    return bronze_uri
 
 
 def main() -> None:

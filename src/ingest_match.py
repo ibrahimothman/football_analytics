@@ -82,6 +82,12 @@ def ingest_match(match_id: int) -> dict:
         )
         return existing
 
+    key = f"raw/match_id={match_id}/events_{file_hash[:12]}.json"
+    raw_uri = put_bytes(
+        key=key,
+        bytes=raw_content,
+    )
+
     previous_versions = [
         record
         for record in manifest
@@ -89,13 +95,6 @@ def ingest_match(match_id: int) -> dict:
     ]
 
     source_version = len(previous_versions) + 1
-
-
-    key = f"raw/match_id={match_id}/events_{file_hash[:12]}.json"
-    raw_uri = put_bytes(
-        key=key,
-        bytes=raw_content,
-    )
 
     record = {
         "ingestion_id": str(uuid.uuid4()),

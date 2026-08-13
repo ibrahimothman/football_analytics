@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import argparse
 import logging
-from pathlib import Path
 
 import pandas as pd
 
 from src.quality.reconcilation import reconcile_silver_to_gold_team
-from src.config.settings import GOLD_DIR
+from src.storage.storage_store import (
+    read_parquet,
+    write_parquet,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -179,16 +181,11 @@ def run_gold_dq_checks(
 
 def build_gold(
     match_id: int,
-    silver_path: Path,
-) -> Path:
+    silver_uri: str,
+) -> str:
 
-    if not silver_path.exists():
-        raise FileNotFoundError(
-            f"Silver artifact not found at {silver_path}"
-        )
-
-    events = pd.read_parquet(
-        silver_path
+    events = read_parquet(
+        uri=silver_uri,
     )
 
     metrics = calculate_team_metrics(
@@ -199,40 +196,30 @@ def build_gold(
     run_gold_dq_checks(metrics)
     reconcile_silver_to_gold_team(events, metrics)
 
-    match_directory = (
-        GOLD_DIR
-        / f"match_id={match_id}"
-    )
-
-    match_directory.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
     file_hash = (
         events["file_hash"]
         .iloc[0][:12]
     )
 
-    gold_path = (
-        match_directory
-        / f"team_metrics_{file_hash}.parquet"
+    key = (
+        f"gold/match_id={match_id}/"
+        f"team_metrics_{file_hash}.parquet"
     )
 
-    metrics.to_parquet(
-        gold_path,
-        index=False,
+    gold_uri = write_parquet(
+        key=key,
+        df=metrics,
     )
 
     logger.info(
         "gold_build_succeeded",
         extra={
             "teams": len(metrics),
-            "output_path": str(gold_path),
+            "output_uri": gold_uri,
         },
     )
 
-    return gold_path        
+    return gold_uri
 
 
 def main() -> None:
