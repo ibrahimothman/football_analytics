@@ -13,6 +13,9 @@ import pandas as pd
 from src.config.settings import (
     BRONZE_DIR,
 )
+from src.storage.storage_store import (
+    get_bytes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -184,18 +187,13 @@ def build_bronze(
 ) -> Path:
     """Build Bronze Parquet for latest source version."""
 
-    raw_path = Path(source["raw_path"])
+    raw_uri = source["raw_uri"]
 
-    if not raw_path.exists():
-        raise FileNotFoundError(
-            f"Raw source does not exist: {raw_path}"
-        )
+    raw_content = get_bytes(
+        uri=raw_uri,
+    )
 
-    with raw_path.open(
-        "r",
-        encoding="utf-8",
-    ) as file:
-        raw_events = json.load(file)
+    raw_events = json.loads(raw_content)
 
     if not isinstance(raw_events, list):
         raise ValueError(
@@ -237,7 +235,7 @@ def build_bronze(
     logger.info(
         "bronze_build_succeeded",
         extra={
-            "source_path": str(raw_path),
+            "source_uri": raw_uri,
             "events": len(bronze_df),
             "columns": len(bronze_df.columns),
             "output_path": str(bronze_path),
