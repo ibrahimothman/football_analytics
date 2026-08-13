@@ -1,4 +1,4 @@
-from src.build_gold import run_gold_dq_checks
+from src.transforms.gold_team import run_gold_dq_checks
 import pandas as pd
 import pytest
 

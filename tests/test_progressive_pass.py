@@ -1,4 +1,4 @@
-from src.build_silver import is_progressive_pass, calculate_progression
+from src.transforms.silver import is_progressive_pass, calculate_progression
 
 def test_progressive_pass_above_threshold():
     start_x = 30

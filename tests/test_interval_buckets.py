@@ -1,4 +1,4 @@
-from src.build_gold_intervals import create_interval_label
+from src.transforms.gold_intervals import create_interval_label
 
 def test_first_half_interval_label():
     label = create_interval_label(
