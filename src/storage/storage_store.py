@@ -1,4 +1,7 @@
 from urllib.parse import urlparse
+from io import BytesIO
+import pandas as pd
+import pyarrow.parquet as pq
 
 from src.storage.s3 import (
     get_s3_client,
@@ -8,6 +11,19 @@ from src.config.settings import (
     S3_BUCKET,
 )
 
+
+def key_from_s3_uri(
+    uri: str,
+) -> str:
+
+    parsed = urlparse(uri)
+
+    if parsed.scheme != "s3":
+        raise ValueError(
+            f"Expected S3 URI, got: {uri}"
+        )
+
+    return parsed.path.lstrip("/")
 
 def put_bytes(
     *,
@@ -41,18 +57,36 @@ def get_bytes(
 
     return response["Body"].read()
 
-
-def key_from_s3_uri(
-    uri: str,
+def write_parquet(
+    *,
+    key: str,
+    df: pd.DataFrame,
 ) -> str:
+    """Write a pandas DataFrame to storage as a Parquet file."""
 
-    parsed = urlparse(uri)
+    buffer = BytesIO()
+    df.to_parquet(buffer, index=False)
+    return put_bytes(
+        key=key,
+        bytes=buffer.getvalue(),
+    )
 
-    if parsed.scheme != "s3":
-        raise ValueError(
-            f"Expected S3 URI, got: {uri}"
-        )
+def read_parquet(
+    *,
+    uri: str,
+) -> pd.DataFrame:
+    """Read a pandas DataFrame from storage as a Parquet file."""
+    return pd.read_parquet(BytesIO(get_bytes(uri=uri)))
 
-    return parsed.path.lstrip("/")
+def count_parquet_rows(
+    *,
+    uri: str,
+) -> int:
+    """Count the number of rows in a Parquet file."""
+    bytes = get_bytes(uri=uri)
+
+    parquet_file = pq.ParquetFile(BytesIO(bytes))
+
+    return parquet_file.metadata.num_rows
 
 
