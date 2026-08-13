@@ -95,13 +95,13 @@ S3_BUCKET = os.getenv(
     "football-data",
 )
 
-S3_ACCESS_KEY = os.environ[
-    "S3_ACCESS_KEY"
-]
+S3_ACCESS_KEY = os.getenv(
+    "S3_ACCESS_KEY",
+)
 
-S3_SECRET_KEY = os.environ[
-    "S3_SECRET_KEY"
-]
+S3_SECRET_KEY = os.getenv(
+    "S3_SECRET_KEY",
+)
 
 S3_REGION = os.getenv(
     "S3_REGION",
