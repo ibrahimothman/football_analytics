@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+
 DATA_ROOT = Path(
     os.getenv("FOOTBALL_DATA_ROOT", "data")
 )
@@ -80,4 +83,28 @@ PROVIDER = os.getenv(
     "statsbomb_open_data",
 )
 
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+# MinIO
+S3_ENDPOINT_URL = os.getenv(
+    "S3_ENDPOINT_URL",
+    "http://minio:9000",
+)
+
+S3_BUCKET = os.getenv(
+    "S3_BUCKET",
+    "football-data",
+)
+
+S3_ACCESS_KEY = os.environ[
+    "S3_ACCESS_KEY"
+]
+
+S3_SECRET_KEY = os.environ[
+    "S3_SECRET_KEY"
+]
+
+S3_REGION = os.getenv(
+    "S3_REGION",
+    "us-east-1",
+)
+
