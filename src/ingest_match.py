@@ -17,6 +17,9 @@ from src.config.settings import (
     RAW_DIR,
     STATSBOMB_EVENTS_URL,
 )
+from src.storage.storage_store import (
+    put_bytes,
+)
 from src.metadata.manifest import read_manifest
 
 
@@ -87,13 +90,12 @@ def ingest_match(match_id: int) -> dict:
 
     source_version = len(previous_versions) + 1
 
-    match_directory = RAW_DIR / f"match_id={match_id}"
-    match_directory.mkdir(parents=True, exist_ok=True)
 
-    filename = f"events_{file_hash[:12]}.json"
-    raw_path = match_directory / filename
-
-    raw_path.write_bytes(raw_content)
+    key = f"raw/match_id={match_id}/events_{file_hash[:12]}.json"
+    raw_uri = put_bytes(
+        key=key,
+        bytes=raw_content,
+    )
 
     record = {
         "ingestion_id": str(uuid.uuid4()),
@@ -102,7 +104,8 @@ def ingest_match(match_id: int) -> dict:
         "source_version": source_version,
         "source_url": url,
         "file_hash": file_hash,
-        "raw_path": raw_path.as_posix(),
+        "raw_path": None,
+        "raw_uri": raw_uri,
         "ingested_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -120,7 +123,7 @@ def ingest_match(match_id: int) -> dict:
             extra={
                 "match_id": match_id,
                 "source_version": source_version,
-                "raw_path": str(raw_path),
+                "raw_uri": raw_uri,
                 "file_hash": file_hash,
             },
         )
@@ -130,7 +133,7 @@ def ingest_match(match_id: int) -> dict:
             extra={
                 "match_id": match_id,
                 "source_version": source_version,
-                "raw_path": str(raw_path),
+                "raw_uri": raw_uri,
                 "file_hash": file_hash,
             },
         )
