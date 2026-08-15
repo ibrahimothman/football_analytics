@@ -87,6 +87,13 @@ x-airflow-common: &airflow-common
 
     S3_REGION: us-east-1
 
+    # Football DB
+    FOOTBALL_DB_HOST: football-db
+    FOOTBALL_DB_PORT: 5432
+    FOOTBALL_DB_NAME: football
+    FOOTBALL_DB_USER: football
+    FOOTBALL_DB_PASSWORD: ${FOOTBALL_DB_PASSWORD}
+
     # other Airflow settings
     PYTHONPATH: /opt/airflow
   volumes:
