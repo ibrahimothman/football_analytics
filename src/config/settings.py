@@ -108,3 +108,26 @@ S3_REGION = os.getenv(
     "us-east-1",
 )
 
+# Football DB
+FOOTBALL_DB_HOST = os.getenv(
+    "FOOTBALL_DB_HOST",
+    "football-db",
+)
+
+FOOTBALL_DB_PORT = int(
+    os.getenv("FOOTBALL_DB_PORT", "5432")
+)
+
+FOOTBALL_DB_NAME = os.getenv(
+    "FOOTBALL_DB_NAME",
+    "football",
+)
+
+FOOTBALL_DB_USER = os.getenv(
+    "FOOTBALL_DB_USER",
+    "football",
+)
+
+FOOTBALL_DB_PASSWORD = os.environ[
+    "FOOTBALL_DB_PASSWORD"
+]
