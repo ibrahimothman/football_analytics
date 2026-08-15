@@ -25,6 +25,8 @@ from src.generate_reports import generate_reports
 from src.observability.airflow_callbacks import dag_failure_callback, task_failure_callback, task_retry_callback
 from src.observability.stage_observer import observe_stage
 from src.storage.storage_store import count_parquet_rows
+from src.build_fact_team_match import build_fact_team_match
+from src.serving.load_fact_team_match import upsert_fact_team_match
 
 
 logger = logging.getLogger("airflow.task")
@@ -356,12 +358,20 @@ def football_match_pipeline():
                 ],
             }
 
+    @task(task_id="load_fact_team_match")
+    def load_fact_team_match(gold_artifact: dict) -> None:
+        gold_uri = gold_artifact["gold_uri"]
+        fact_df = build_fact_team_match(gold_uri)
+        upsert_fact_team_match(fact_df)
+
     ingested_match_id = ingest()
     bronze_artifact = bronze(ingested_match_id)
     silver_artifact = silver(bronze_artifact)
     gold_team_artifact = gold(silver_artifact)
     gold_intervals_artifact = gold_intervals(silver_artifact)
     reports(gold_team_artifact, gold_intervals_artifact)
+    load_fact_team_match(gold_team_artifact)
+
 
 
 football_match_pipeline()
