@@ -1,12 +1,16 @@
+import json
 import logging
 
+import pandas as pd
 import pendulum
 from airflow.sdk import dag, task
 from airflow.providers.standard.operators.trigger_dagrun import (
     TriggerDagRunOperator,
 )
 
+from src.build_dim_match import build_dim_match
 from src.metadata.manifest import load_ingested_match_ids
+from src.serving.load_dim_match import upsert_dim_match
 
 
 logger = logging.getLogger("airflow.task")
@@ -26,34 +30,44 @@ logger = logging.getLogger("airflow.task")
 )
 def football_match_discovery():
 
-    @task(task_id="discover_matches")
-    def discover_matches() -> list[dict]:
-        """Discover new matches to process."""
+    @task(task_id="build_dim_match")
+    def build_dim_match_task() -> list[dict]:
+        dim_matches_df = build_dim_match()
+        upsert_dim_match(dim_matches_df)
 
-        from src.discover_matches import get_matches
+        logger.info(
+            "Built dim_match with %s rows",
+            len(dim_matches_df),
+        )
 
+        return dim_matches_df["match_id"].tolist()
+
+
+    @task(task_id="find_new_matches")
+    def find_new_matches(
+        dim_match_ids: list[int],
+    ) -> list[dict]:
         ingested_match_ids = load_ingested_match_ids()
-        available_matches = get_matches(
-            team_name="Arsenal",
-        )["match_id"].tolist()
 
-        new_matches = [
+        new_match_ids = [
             match_id
-            for match_id in available_matches
-            if match_id not in ingested_match_ids
+            for match_id in dim_match_ids
+            if match_id
+            not in ingested_match_ids
         ]
 
         logger.info(
             "Discovered %s matches to process. "
             "Unprocessed matches: %s",
-            len(available_matches),
-            len(new_matches),
+            len(dim_match_ids),
+            len(new_match_ids),
         )
 
         logger.info(
             "New match IDs:\n%s",
             "\n".join(
-                str(match_id) for match_id in new_matches
+                str(match_id)
+                for match_id in new_match_ids
             ),
         )
 
@@ -64,10 +78,13 @@ def football_match_discovery():
                 },
                 "trigger_run_id": f"match_{match_id}",
             }
-            for match_id in new_matches[:5]
+            for match_id in new_match_ids[:5]
         ]
 
-    new_match_configs = discover_matches()
+    dim_match_ids = build_dim_match_task()
+    new_match_configs = find_new_matches(
+        dim_match_ids,
+    )
 
     TriggerDagRunOperator.partial(
         task_id="trigger_match_pipeline",
