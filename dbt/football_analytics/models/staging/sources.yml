@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: football_analytics
+    schema: serving
+
+    tables:
+      - name: src_silver_events
+        description: >
+          SQL-accessible copy of canonical Silver events loaded by Airflow.
+          Grain: one row per football event.
+      - name: dim_match

@@ -7,6 +7,7 @@ from airflow.sdk import dag, task
 from airflow.providers.standard.operators.trigger_dagrun import (
     TriggerDagRunOperator,
 )
+from airflow.providers.standard.operators.bash import BashOperator
 
 from src.build_dim_match import build_dim_match
 from src.metadata.manifest import load_ingested_match_ids
@@ -41,6 +42,15 @@ def football_match_discovery():
         )
 
         return dim_matches_df["match_id"].tolist()
+
+    run_dbt = BashOperator(
+        task_id="run_dbt_stg_dim_match",
+        pool="dbt_writes",
+        bash_command="""
+            cd /opt/airflow/dbt/football_analytics &&
+            dbt run --select stg_dim_match --target docker --profiles-dir /opt/airflow/dbt/football_analytics
+        """,
+    )
 
 
     @task(task_id="find_new_matches")
@@ -82,6 +92,7 @@ def football_match_discovery():
         ]
 
     dim_match_ids = build_dim_match_task()
+    dim_match_ids >> run_dbt
     new_match_configs = find_new_matches(
         dim_match_ids,
     )
