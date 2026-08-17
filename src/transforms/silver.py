@@ -173,6 +173,7 @@ def is_progressive_pass(
 def bronze_to_silver_row(
     row: pd.Series,
     xt_grid: list[list[float]],
+    pitch_size: tuple[float, float],
 ) -> dict:
 
     event = json.loads(
@@ -235,6 +236,7 @@ def bronze_to_silver_row(
 
         xt_start, xt_end, xt_added = rate_move(
             grid=xt_grid,
+            pitch_size=pitch_size,
             start_x=start_x,
             start_y=start_y,
             end_x=end_x,
@@ -425,10 +427,11 @@ def run_silver_dq_checks(
 def bronze_to_silver(
     bronze_df: pd.DataFrame,
     xt_grid: list[list[float]],
+    pitch_size: tuple[float, float],
 ) -> pd.DataFrame:
 
     rows = [
-        bronze_to_silver_row(row, xt_grid)
+        bronze_to_silver_row(row, xt_grid, pitch_size)
         for _, row in bronze_df.iterrows()
     ]
 

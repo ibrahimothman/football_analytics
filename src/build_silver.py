@@ -5,17 +5,56 @@ from __future__ import annotations
 import argparse
 import logging
 
-from src.metrics.expected_threat import load_xt_grid
+import json
+
 from src.storage.storage_store import (
     read_parquet,
     write_parquet,
 )
 from src.transforms.silver import bronze_to_silver
+from src.config.settings import MODELS_ROOT
 
+MODEL_PATH = MODELS_ROOT / "xt" / "open_xt_12x8_v1.json"
 
 logger = logging.getLogger(__name__)
 
+PITCH_LENGTH = 105
+PITCH_WIDTH = 68
 
+GRID_COLUMNS = 12
+GRID_ROWS = 8
+
+
+def load_xt_grid() -> list[list[float]]:
+    """Load and validate the xT grid."""
+
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(
+            "xT model not found. "
+            "Run src.download_xt_model first."
+        )
+
+    with MODEL_PATH.open(
+        "r",
+        encoding="utf-8",
+    ) as file:
+        grid = json.load(file)
+
+    if len(grid) != GRID_ROWS:
+        raise ValueError(
+            "Invalid xT grid row count."
+        )
+
+    if any(
+        len(row) != GRID_COLUMNS
+        for row in grid
+    ):
+        raise ValueError(
+            "Invalid xT grid column count."
+        )
+
+    return grid
+    
 def build_silver(
     match_id: int,
     bronze_uri: str,
@@ -26,7 +65,8 @@ def build_silver(
     )
 
     xt_grid = load_xt_grid()
-    silver_df = bronze_to_silver(bronze_df, xt_grid)
+    pitch_size = (PITCH_LENGTH, PITCH_WIDTH)
+    silver_df = bronze_to_silver(bronze_df, xt_grid, pitch_size)
 
     file_hash = (
         silver_df["file_hash"]

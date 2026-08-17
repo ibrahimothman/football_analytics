@@ -2,86 +2,35 @@
 
 from __future__ import annotations
 
-import json
-
 import pandas as pd
-
-from src.config.settings import MODELS_ROOT
-
-
-MODEL_PATH = MODELS_ROOT / "xt" / "open_xt_12x8_v1.json"
 
 XT_MODEL_VERSION = "open_xt_12x8_v1"
 
-PITCH_LENGTH = 105
-PITCH_WIDTH = 68
-
-GRID_COLUMNS = 12
-GRID_ROWS = 8
-
-
-def load_xt_grid() -> list[list[float]]:
-    """Load and validate the xT grid."""
-
-    if not MODEL_PATH.exists():
-        raise FileNotFoundError(
-            "xT model not found. "
-            "Run src.download_xt_model first."
-        )
-
-    with MODEL_PATH.open(
-        "r",
-        encoding="utf-8",
-    ) as file:
-        grid = json.load(file)
-
-    if len(grid) != GRID_ROWS:
-        raise ValueError(
-            "Invalid xT grid row count."
-        )
-
-    if any(
-        len(row) != GRID_COLUMNS
-        for row in grid
-    ):
-        raise ValueError(
-            "Invalid xT grid column count."
-        )
-
-    return grid
-
-def coordinate_to_cell(
-    x: float,
-    y: float,
+def continuous_to_cell(
+    point: tuple[float, float],
+    continuous_size: tuple[float, float],
+    discrete_size: tuple[int, int],
 ) -> tuple[int, int]:
-    """Convert pitch coordinates into xT grid indexes."""
+    """Convert continuous pitch coordinates into discrete grid indexes."""
 
-    x_index = int(
-        x / PITCH_LENGTH
-        * GRID_COLUMNS
-    )
+    x, y = point
+    x_max, y_max = continuous_size
+    n_x, n_y = discrete_size
 
-    y_index = int(
-        y / PITCH_WIDTH
-        * GRID_ROWS
-    )
+    col = int(x / x_max * n_x)
+    row = int(y / y_max * n_y)
 
-    # Protect pitch-boundary values such as x=105.
-    x_index = min(
-        max(x_index, 0),
-        GRID_COLUMNS - 1,
-    )
+    # Protect boundries
+    col = min(max(col, 0), n_x - 1)
+    row = min(max(row, 0), n_y - 1)
 
-    y_index = min(
-        max(y_index, 0),
-        GRID_ROWS - 1,
-    )
+    return col, row
 
-    return x_index, y_index    
 
 
 def get_xt_value(
     grid: list[list[float]],
+    pitch_size: tuple[float, float],
     x: float | None,
     y: float | None,
 ) -> float | None:
@@ -90,20 +39,23 @@ def get_xt_value(
     if pd.isna(x) or pd.isna(y):
         return None
 
-    x_index, y_index = (
-        coordinate_to_cell(
-            x=x,
-            y=y,
+    col, row = (
+        continuous_to_cell(
+            point=(x, y),
+            continuous_size=pitch_size,
+            discrete_size=(len(grid[0]), len(grid)),
+
         )
     )
 
     return float(
-        grid[y_index][x_index]
+        grid[row][col]
     )    
 
 
 def rate_move(
     grid: list[list[float]],
+    pitch_size: tuple[float, float],
     start_x: float,
     start_y: float,
     end_x: float,
@@ -117,12 +69,14 @@ def rate_move(
 
     xt_start = get_xt_value(
         grid,
+        pitch_size,
         start_x,
         start_y,
     )
 
     xt_end = get_xt_value(
         grid,
+        pitch_size,
         end_x,
         end_y,
     )
