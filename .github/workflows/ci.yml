@@ -106,6 +106,10 @@ jobs:
             -d football \
             -f dbt/football_analytics/ci/setup.sql
 
+      - name: install dbt packages
+        working-directory: dbt/football_analytics
+        run: dbt deps
+
       - name: Validate dbt connection
         working-directory: dbt/football_analytics
         run: dbt debug --target ci
