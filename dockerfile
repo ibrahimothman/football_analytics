@@ -1,7 +1,7 @@
 FROM apache/airflow:3.3.0
 
-ADD requirements.txt .
+# Copy the requirements file directly
+COPY requirements.txt .
 
-RUN pip install \
-    apache-airflow==${AIRFLOW_VERSION} \
-    -r requirements.txt
+# Install packages without saving heavy installer files
+RUN pip install --no-cache-dir -r requirements.txt
