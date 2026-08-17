@@ -3,9 +3,6 @@ version: 2
 models:
   - name: team_match_enriched
 
-    config:
-      contract:
-        enforced: true
     columns:
       - name: match_id
         data_type: bigint
@@ -32,10 +29,10 @@ models:
       - name: xg
         data_type: double precision
 
-      - name: passes_attempted
+      - name: attempted_pass
         data_type: integer
 
-      - name: passes_completed
+      - name: completed_passes
         data_type: integer
 
       - name: progressive_passes

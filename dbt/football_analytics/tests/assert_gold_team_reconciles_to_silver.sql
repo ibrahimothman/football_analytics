@@ -11,8 +11,8 @@ with silver as (
 )
 
 select 
-    team_id,
-    match_id
+    g.team_id,
+    g.match_id
 
 from {{ ref('fact_gold_team') }} as g
 join silver as s
