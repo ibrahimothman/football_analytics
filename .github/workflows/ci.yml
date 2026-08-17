@@ -58,3 +58,58 @@ jobs:
             -v "${{ github.workspace }}/scripts/validate_dags.py:/opt/airflow/validate_dags.py" \
             football-airflow-ci \
             python /opt/airflow/validate_dags.py
+
+  dbt-validation:
+  runs-on: ubuntu-latest
+
+  services:
+    postgres:
+      image: postgres:16
+
+      env:
+        POSTGRES_USER: football
+        POSTGRES_PASSWORD: football
+        POSTGRES_DB: football
+
+      ports:
+        - 5432:5432
+
+      options: >-
+        --health-cmd pg_isready
+        --health-interval 10s
+        --health-timeout 5s
+        --health-retries 5
+
+  env:
+    DBT_HOST: localhost
+    DBT_PORT: 5432
+    DBT_USER: football
+    DBT_PASSWORD: football
+    DBT_DBNAME: football
+
+  steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install dbt
+      run: pip install dbt-postgres
+
+    - name: Create CI source data
+      run: |
+        PGPASSWORD=football \
+        psql \
+          -h localhost \
+          -U football \
+          -d football \
+          -f dbt/football_analytics/ci/setup.sql
+
+    - name: Validate dbt connection
+      working-directory: dbt/football_analytics
+      run: dbt debug --target ci
+
+    - name: Build dbt project
+      working-directory: dbt/football_analytics
+      run: dbt build --target ci
