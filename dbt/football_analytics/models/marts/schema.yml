@@ -1,0 +1,154 @@
+version: 2
+
+models:
+  - name: team_match_enriched
+
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: match_id
+        data_type: bigint
+        data_tests:
+          - not_null
+      - name: team_id
+        data_type: bigint
+        data_tests:
+          - not_null
+
+      - name: team_name
+        data_type: text
+        data_tests:
+          - not_null
+
+      - name: goals
+        data_type: integer
+        data_tests:
+          - not_null
+
+      - name: shots
+        data_type: integer
+
+      - name: xg
+        data_type: double precision
+
+      - name: passes_attempted
+        data_type: integer
+
+      - name: passes_completed
+        data_type: integer
+
+      - name: progressive_passes
+        data_type: integer
+
+      - name: carries
+        data_type: integer
+
+      - name: match_date
+        data_type: date
+        data_tests:
+          - not_null
+
+      - name: season_name
+        data_type: text
+
+      - name: home_team_id
+        data_type: bigint
+
+      - name: home_team_name
+        data_type: text
+
+      - name: away_team_id
+        data_type: bigint
+
+      - name: away_team_name
+        data_type: text
+
+      - name: venue
+        data_type: text
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Home", "Away"]
+
+      - name: opponent
+        data_type: text
+        data_tests:
+          - not_null
+
+  - name: fact_team_match
+
+  - name: fact_gold_team
+    description: >
+      Team-level match metrics derived from canonical Silver football events.
+      Grain: one row per team per match.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [match_id, team_id]
+    columns:
+      - name: match_id
+        description: Unique identifier for the match.
+        data_tests: [not_null]
+      - name: team_id
+        data_tests: [not_null]
+        description: Unique identifier for the team.
+      - name: shots
+        description: Number of shots taken by the team.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+      - name: xg
+        description: Expected goals for the team.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+      - name: pass_completion_pct
+        description: Percentage of passes completed by the team.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+  - name: fact_gold_intervals
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              [match_id, team_id, period, interval_start, is_stoppage_time]
+    columns:
+      - name: match_id
+        data_tests: [not_null]
+      - name: team_id
+        data_tests: [not_null]
+      - name: period
+        data_tests: [not_null]
+      - name: interval_start
+        data_tests: [not_null]
+      - name: is_stoppage_time
+        data_tests: [not_null]
+      - name: positive_xt
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+      - name: negative_xt
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { max_value: 0 }
+exposures:
+  - name: weekly_jaffle_metrics
+    label: Jaffles by the Week
+    type: dashboard
+    maturity: high
+    url: https://bi.tool/dashboards/1
+    description: >
+      Did someone say "exponential growth"?
+
+    depends_on:
+      - ref('fact_gold_team')
+
+    owner:
+      name: Oscar Viana
+      email: oscar.viana@gmail.com
