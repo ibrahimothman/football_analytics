@@ -19,7 +19,7 @@ aggregated as (
         team_id,
         max(team_name) as team_name,
 
-        count(is_shot::int) as shots,
+        sum(is_shot::int) as shots,
         sum((is_shot and outcome = 'Goal')::int) as goals,
         sum(coalesce(shot_xg, 0)) filter (where is_shot) as xg,
 
