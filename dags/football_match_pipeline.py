@@ -15,18 +15,19 @@ from airflow.sdk import (
     
 )
 
+from airflow.providers.standard.operators.bash import BashOperator
+
+
 
 from src.ingest_match import ingest_match
 from src.build_bronze import build_bronze
 from src.build_silver import build_silver
-from src.build_gold import build_gold
-from src.build_gold_intervals import build_gold_intervals
 from src.generate_reports import generate_reports
 from src.observability.airflow_callbacks import dag_failure_callback, task_failure_callback, task_retry_callback
 from src.observability.stage_observer import observe_stage
 from src.storage.storage_store import count_parquet_rows
-from src.build_fact_team_match import build_fact_team_match
-from src.serving.load_fact_team_match import upsert_fact_team_match
+from src.serving.load_silver_events import upsert_src_silver_events
+from src.storage.storage_store import read_parquet
 
 
 logger = logging.getLogger("airflow.task")
@@ -154,6 +155,17 @@ INGEST_RETRY_POLICY = (IngestRetryPolicy())
 )
 def football_match_pipeline():
 
+    @task(task_id="resolve_match_id")
+    def resolve_match_id() -> int:
+        context = get_current_context()
+        dag_run = context["dag_run"]
+        conf_match_id = (
+            dag_run.conf.get("match_id")
+            if dag_run and dag_run.conf
+            else None
+        )
+        return conf_match_id or context["params"]["match_id"]
+
     @task(
         task_id="ingest",
         pool="statsbomb_api",
@@ -162,17 +174,8 @@ def football_match_pipeline():
         execution_timeout=timedelta(minutes=2),
         retry_policy=INGEST_RETRY_POLICY,
     )
-    def ingest()-> dict:
-        context = get_current_context()
-
-        dag_run = context["dag_run"]
-        conf_match_id = dag_run.conf.get("match_id") if dag_run and dag_run.conf else None
-
-        match_id = conf_match_id if conf_match_id else context["params"]["match_id"]
-
+    def ingest(match_id: int) -> dict:
         logger.info(f"Starting to ingest match {match_id} from StatsBomb Open Data")
-
-
         artifact = ingest_match(match_id)
 
         logger.info(
@@ -242,136 +245,90 @@ def football_match_pipeline():
                 **artifact,
                 "silver_uri": silver_uri,
             }
-
-    @task(task_id="gold")
-    def gold(artifact: dict) -> str:
+            
+    @task(task_id="load_silver_events_to_db")
+    def load_silver_events_to_db(artifact: dict) -> None:
         silver_uri = artifact["silver_uri"]
+        silver_df = read_parquet(uri=silver_uri)
+        upsert_src_silver_events(silver_df)
 
-        context = get_current_context()
-        task_instance = context["ti"]
 
-        with observe_stage(
-            airflow_run_id=context["dag_run"].run_id,
-            dag_id=task_instance.dag_id,
-            task_id=task_instance.task_id,
-            try_number=task_instance.try_number,
-            match_id=artifact["match_id"],
-            stage="GOLD_TEAM",
-        ) as metrics:
-            metrics["rows_in"] = count_parquet_rows(
-                uri=silver_uri,
-            )
+    run_stg_silver_events_dbt = BashOperator(
+        task_id="run_dbt_stg_silver_events",
+        pool="dbt_writes",
+        cwd="/opt/airflow/dbt/football_analytics",
+        bash_command="""
+            dbt build \
+            --select stg_silver_events \
+            --target docker \
+            --profiles-dir /opt/airflow/dbt/football_analytics \
+            --vars '{"match_id": {{ ti.xcom_pull(task_ids="resolve_match_id") }}}'
+        """,
+    )    
 
-            gold_uri = build_gold(
-                match_id=artifact["match_id"],
-                silver_uri=silver_uri,
-            )
+    run_fact_gold_team_dbt = BashOperator(
+        task_id="run_dbt_fact_gold_team",
+        pool="dbt_writes",
+        cwd="/opt/airflow/dbt/football_analytics",
+        bash_command="""
+            dbt build \
+            --select fact_gold_team \
+            --target docker \
+            --profiles-dir /opt/airflow/dbt/football_analytics \
+            --vars '{"match_id": {{ ti.xcom_pull(task_ids="resolve_match_id") }}}'
+        """,
+    )
 
-            metrics["rows_out"] = count_parquet_rows(
-                uri=gold_uri,
-            )
+    run_fact_gold_intervals_dbt = BashOperator(
+        task_id="run_dbt_fact_gold_intervals",
+        pool="dbt_writes",
+        cwd="/opt/airflow/dbt/football_analytics",
+        bash_command="""
+            dbt build \
+            --select fact_gold_intervals \
+            --target docker \
+            --profiles-dir /opt/airflow/dbt/football_analytics \
+            --vars '{"match_id": {{ ti.xcom_pull(task_ids="resolve_match_id") }}}'
+        """,
+    )
 
-            return {
-                **artifact,
-                "gold_uri": gold_uri,
-            }
-
-    @task(task_id="gold_intervals")
-    def gold_intervals(artifact: dict) -> str:
-        silver_uri = artifact["silver_uri"]
-
-        context = get_current_context()
-        task_instance = context["ti"]
-
-        with observe_stage(
-            airflow_run_id=context["dag_run"].run_id,
-            dag_id=task_instance.dag_id,
-            task_id=task_instance.task_id,
-            try_number=task_instance.try_number,
-            match_id=artifact["match_id"],
-            stage="GOLD_INTERVAL",
-        ) as metrics:
-            metrics["rows_in"] = count_parquet_rows(
-                uri=silver_uri,
-            )
-
-            gold_intervals_uri = build_gold_intervals(
-                match_id=artifact["match_id"],
-                silver_uri=silver_uri,
-            )
-
-            metrics["rows_out"] = count_parquet_rows(
-                uri=gold_intervals_uri,
-            )
-
-            return {
-                **artifact,
-                "gold_intervals_uri": gold_intervals_uri,
-            }
 
     @task(task_id="reports")
-    def reports(team_artifact: dict, intervals_artifact: dict) -> int:
+    def reports() -> int:
         """Generate reports after both gold tasks complete."""
-
-        if (
-            team_artifact["match_id"]
-            != intervals_artifact["match_id"]
-        ):
-            raise ValueError(
-                "Gold artifacts belong to different matches."
-            )
-
-        if (
-            team_artifact["file_hash"]
-            != intervals_artifact["file_hash"]
-        ):
-            raise ValueError(
-                "Gold artifacts were produced from "
-                "different source versions."
-            )
 
         context = get_current_context()
         task_instance = context["ti"]
+
+        match_id = context["ti"].xcom_pull(task_ids="resolve_match_id")
 
         with observe_stage(
             airflow_run_id=context["dag_run"].run_id,
             dag_id=task_instance.dag_id,
             task_id=task_instance.task_id,
             try_number=task_instance.try_number,
-            match_id=team_artifact["match_id"],
+            match_id=match_id,
             stage="REPORTS",
         ):
-            reports_paths = generate_reports(
-                match_id=team_artifact["match_id"],
-                silver_uri=team_artifact["silver_uri"],
-                gold_uri=team_artifact["gold_uri"],
-                gold_intervals_uri=intervals_artifact[
-                    "gold_intervals_uri"
-                ],
-            )
+            reports_paths = generate_reports(match_id)
 
             return {
-                **team_artifact,
-                **intervals_artifact,
                 "reports_paths": [
                     str(path) for path in reports_paths
                 ],
             }
 
-    @task(task_id="load_fact_team_match")
-    def load_fact_team_match(gold_artifact: dict) -> None:
-        gold_uri = gold_artifact["gold_uri"]
-        fact_df = build_fact_team_match(gold_uri)
-        upsert_fact_team_match(fact_df)
+   
 
-    ingested_match_id = ingest()
-    bronze_artifact = bronze(ingested_match_id)
+    match_id = resolve_match_id()
+    artifact = ingest(match_id)
+    bronze_artifact = bronze(artifact)
     silver_artifact = silver(bronze_artifact)
-    gold_team_artifact = gold(silver_artifact)
-    gold_intervals_artifact = gold_intervals(silver_artifact)
-    reports(gold_team_artifact, gold_intervals_artifact)
-    load_fact_team_match(gold_team_artifact)
-
+    loaded_silver_events = load_silver_events_to_db(silver_artifact)
+    loaded_silver_events >> run_stg_silver_events_dbt 
+    run_stg_silver_events_dbt >> [run_fact_gold_team_dbt, run_fact_gold_intervals_dbt]
+    [run_fact_gold_team_dbt, run_fact_gold_intervals_dbt] >> reports()
+    
 
 
 football_match_pipeline()
