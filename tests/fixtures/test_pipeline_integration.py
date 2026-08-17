@@ -9,6 +9,7 @@ from src.transforms.gold_intervals import build_interval_metrics
 
 MATCH_ID = 3749358
 
+PITCH_SIZE = (105, 68)
 
 def create_mock_xt_grid():
     """create a mock xt 12x8 grid"""
@@ -40,7 +41,7 @@ def test_pipeline_integration():
 
     bronze_df = events_to_bronze(events, manifest_record)
 
-    silver_df = bronze_to_silver(bronze_df, create_mock_xt_grid())
+    silver_df = bronze_to_silver(bronze_df, create_mock_xt_grid(), PITCH_SIZE)
 
     gold_team_metrics = calculate_team_metrics(silver_df)
     gold_intervals_metrics = build_interval_metrics(silver_df)
