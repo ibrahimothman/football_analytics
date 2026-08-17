@@ -16,7 +16,6 @@ from src.observability.airflow_callbacks import (
     task_failure_callback,
 )
 
-logger = logging.getLogger("airflow.task")
 
 
 @dag(
