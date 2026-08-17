@@ -117,3 +117,10 @@ jobs:
       - name: Build dbt project
         working-directory: dbt/football_analytics
         run: dbt build --target ci
+
+      - name: Print failed dbt test rows
+        if: failure()
+        working-directory: dbt/football_analytics
+        run: |
+          PGPASSWORD=football psql -h localhost -U football -d football \
+            -f target/compiled/football_analytics/tests/assert_gold_team_reconciles_to_silver.sql
