@@ -128,6 +128,6 @@ FOOTBALL_DB_USER = os.getenv(
     "football",
 )
 
-FOOTBALL_DB_PASSWORD = os.environ[
-    "FOOTBALL_DB_PASSWORD"
-]
+FOOTBALL_DB_PASSWORD = os.getenv(
+    "FOOTBALL_DB_PASSWORD",
+)
