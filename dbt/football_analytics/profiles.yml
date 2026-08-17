@@ -1,0 +1,28 @@
+football_analytics:
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      port: 5433
+      user: football
+      password: "{{ env_var('FOOTBALL_DB_PASSWORD') }}"
+      dbname: football
+      schema: serving
+    docker:
+      type: postgres
+      host: football-db
+      port: 5432
+      user: football
+      password: "{{ env_var('FOOTBALL_DB_PASSWORD') }}"
+      dbname: football
+      schema: serving
+
+    ci:
+      type: postgres
+      host: "{{ env_var('DBT_HOST') }}"
+      port: "{{ env_var('DBT_PORT') | int }}"
+      user: "{{ env_var('DBT_USER') }}"
+      password: "{{ env_var('DBT_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_DBNAME') }}"
+      schema: serving
