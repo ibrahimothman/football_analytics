@@ -12,7 +12,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 from src.config.settings import REPORTS_ROOT
-from src.storage.storage_store import read_parquet
 
 
 REPORTS_DIR = REPORTS_ROOT
@@ -43,25 +42,21 @@ INTERVAL_ORDER = [
 
 
 def generate_xt_momentum(
-    gold_intervals_uri: str,
+    gold_intervals_metrics: pd.DataFrame,
 ) -> Path:
     """Generate xT threat momentum chart from Gold interval metrics."""
 
-    df = read_parquet(
-        uri=gold_intervals_uri,
-    )
-
-    if df.empty:
+    if gold_intervals_metrics.empty:
         raise ValueError(
             "Gold interval dataset is empty."
         )
 
     match_id = int(
-        df["match_id"].iloc[0]
+        gold_intervals_metrics["match_id"].iloc[0]
     )
 
     teams = list(
-        df["team_name"]
+        gold_intervals_metrics["team_name"]
         .dropna()
         .unique()
     )
@@ -79,15 +74,15 @@ def generate_xt_momentum(
         )
     }
 
-    df = df.copy()
+    gold_intervals_metrics = gold_intervals_metrics.copy()
 
-    df["display_order"] = (
-        df["interval_label"]
+    gold_intervals_metrics["display_order"] = (
+        gold_intervals_metrics["interval_label"]
         .map(order_lookup)
     )
 
-    unknown_intervals = df[
-        df["display_order"].isna()
+    unknown_intervals = gold_intervals_metrics[
+        gold_intervals_metrics["display_order"].isna()
     ]
 
     if not unknown_intervals.empty:
@@ -98,16 +93,16 @@ def generate_xt_momentum(
 
     # Build one aligned row per expected interval.
     team_a = (
-        df[
-            df["team_name"] == teams[0]
+        gold_intervals_metrics[
+            gold_intervals_metrics["team_name"] == teams[0]
         ]
         .set_index("interval_label")
         .reindex(INTERVAL_ORDER)
     )
 
     team_b = (
-        df[
-            df["team_name"] == teams[1]
+        gold_intervals_metrics[
+            gold_intervals_metrics["team_name"] == teams[1]
         ]
         .set_index("interval_label")
         .reindex(INTERVAL_ORDER)

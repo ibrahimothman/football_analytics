@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import argparse
 import logging
-from pathlib import Path
+
+
+import pandas as pd
+
+from src.storage.database import (
+    get_db_connection,
+)
 
 from src.reports.match_summary import (
     generate_match_summary,
@@ -20,31 +26,70 @@ from src.reports.xt_momentum import (
 )
 
 
+
 logger = logging.getLogger(__name__)
 
-def generate_reports(
-    match_id: int,
-    silver_uri: str,
-    gold_uri: str,
-    gold_intervals_uri: str,
-) -> list[Path]:
 
+def get_gold_team_metrics(match_id: int):
+    sql = """
+        select
+            match_id,
+            team_name,
+            goals,
+            shots,
+            xg,
+            pass_completion_pct,
+            progressive_passes,
+            carries
+        from serving.fact_gold_team
+        where match_id = %(match_id)s
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            return pd.read_sql(sql, conn, params={"match_id": match_id})
+
+def get_gold_intervals_metrics(match_id: int):
+    sql = """
+        select
+            match_id,
+            team_name,
+            interval_label,
+            positive_xt
+        from serving.fact_gold_intervals
+        where match_id = %(match_id)s
+    """
+    with get_db_connection() as conn:
+        return pd.read_sql(sql, conn, params={"match_id": match_id})
+
+def get_silver_events(match_id: int) -> pd.DataFrame:
+    sql = """
+        select
+            match_id,
+            team_name,
+            event_index,
+            minute,
+            second,
+            start_x,
+            start_y,
+            shot_xg,
+            outcome,
+            is_shot
+        from serving.stg_silver_events
+        where match_id = %(match_id)s
+    """
+    with get_db_connection() as conn:
+        return pd.read_sql(sql, conn, params={"match_id": match_id})
+
+
+def generate_reports(match_id: int):
+    gold_team_metrics = get_gold_team_metrics(match_id)
+    gold_intervals_metrics = get_gold_intervals_metrics(match_id)
+    silver_events = get_silver_events(match_id)
     outputs = [
-        generate_match_summary(
-            gold_uri
-        ),
-
-        generate_shot_map(
-            silver_uri
-        ),
-
-        generate_xg_timeline(
-            silver_uri
-        ),
-
-        generate_xt_momentum(
-            gold_intervals_uri
-        ),
+        generate_match_summary(gold_team_metrics),
+        generate_shot_map(silver_events),
+        generate_xg_timeline(silver_events),
+        generate_xt_momentum(gold_intervals_metrics),
     ]
 
     logger.info(

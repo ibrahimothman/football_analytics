@@ -4,34 +4,32 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import matplotlib.pyplot as plt
 import logging
 
 logger = logging.getLogger(__name__)   
 
 from src.config.settings import REPORTS_ROOT
-from src.storage.storage_store import read_parquet
 
 
 REPORTS_DIR = REPORTS_ROOT
 
 
 def generate_match_summary(
-    gold_uri: str,
+    gold_team_metrics: pd.DataFrame,
 ) -> Path:
     """Generate a simple match summary image."""
 
-    df = read_parquet(uri=gold_uri)
-
-    if len(df) != 2:
+    if len(gold_team_metrics) != 2:
         raise ValueError(
             "Expected exactly two teams in Gold data."
         )
 
-    match_id = int(df["match_id"].iloc[0])
+    match_id = int(gold_team_metrics["match_id"].iloc[0])
 
-    team_a = df.iloc[0]
-    team_b = df.iloc[1]
+    team_a = gold_team_metrics.iloc[0]
+    team_b = gold_team_metrics.iloc[1]
 
     metrics = [
         ("Goals", "goals", "{:.0f}"),

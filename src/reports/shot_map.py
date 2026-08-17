@@ -13,7 +13,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 from src.config.settings import REPORTS_ROOT
-from src.storage.storage_store import read_parquet
 
 
 REPORTS_DIR = REPORTS_ROOT
@@ -105,16 +104,12 @@ def _plot_team_shots(
 
 
 def generate_shot_map(
-    silver_uri: str,
+    silver_events: pd.DataFrame,
 ) -> Path:
     """Generate analyst-style two-panel shot map."""
 
-    df = read_parquet(
-        uri=silver_uri,
-    )
-
-    shots = df[
-        df["is_shot"]
+    shots = silver_events[
+        silver_events["is_shot"]
     ].copy()
 
     if shots.empty:
@@ -123,7 +118,7 @@ def generate_shot_map(
         )
 
     match_id = int(
-        df["match_id"].iloc[0]
+        silver_events["match_id"].iloc[0]
     )
 
     teams = list(
