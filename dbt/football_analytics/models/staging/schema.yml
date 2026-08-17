@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: stg_dim_match
+    columns:
+      - name: match_id
+        data_tests:
+          - not_null
+          - unique
+
+  - name: stg_gold_team
+    columns:
+      - name: match_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_dim_match')
+                field: match_id
+      - name: team_id
+        data_tests:
+          - not_null
