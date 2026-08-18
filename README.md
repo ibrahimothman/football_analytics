@@ -345,40 +345,21 @@ Runs against isolated PostgreSQL with fixture data.
 
 ---
 
-## Reports (Football Visualizations)
+## 📊 Match Analytics Reports 
 
-The final layer of the pipeline transforms analytical tables into **football-specific visual insights**.
+### xG Timeline 
 
-These reports answer:
+<img src="https://github.com/user-attachments/assets/dfd11248-4438-4ec7-8ab6-5d727509e330" width="800"/> 
 
-- How did teams progress the ball?
-- Where did attacking threat originate?
-- Which zones controlled the match?
-- How did momentum shift over time?
+Expected goals progression over time, showing attacking intensity and chance quality evolution. 
 
----
+--- 
 
-### 🗺️ Expected Threat (xT) Heatmap
+### xT Momentum 
 
-Visualizes attacking value distribution across the pitch.
+<img src="https://github.com/user-attachments/assets/9316d7ef-87a8-419c-ad57-539e3af4ab16" width="800"/> 
 
----
-
-### 🔗 Passing Network
-
-Shows team structure and passing relationships.
-
----
-
-### 🎯 Shot Map
-
-Displays shot locations, xG, and outcomes.
-
----
-
-### 📈 Match Momentum (xT over time)
-
-Tracks attacking momentum shifts throughout the match.
+Field progression-based momentum model capturing territorial dominance and attacking flow.
 
 ---
 
