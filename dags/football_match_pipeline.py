@@ -26,7 +26,7 @@ from src.generate_reports import generate_reports
 from src.observability.airflow_callbacks import dag_failure_callback, task_failure_callback, task_retry_callback
 from src.observability.stage_observer import observe_stage
 from src.storage.storage_store import count_parquet_rows
-from src.serving.load_silver_events import upsert_src_silver_events
+from src.serving.load_silver_events import load_silver_to_postgres
 from src.storage.storage_store import read_parquet
 
 
@@ -232,29 +232,25 @@ def football_match_pipeline():
             stage="SILVER",
         ) as metrics:
 
-            silver_uri = build_silver(
+            result = build_silver(
                 match_id=artifact["match_id"],
                 bronze_uri=bronze_uri,
             )
 
-            metrics["rows_out"] = count_parquet_rows(
-                uri=silver_uri,
-            )
-
             return {
                 **artifact,
-                "silver_uri": silver_uri,
+                "snapshot_id": result["snapshot_id"],
             }
             
     @task(task_id="load_silver_events_to_db")
     def load_silver_events_to_db(artifact: dict) -> None:
-        silver_uri = artifact["silver_uri"]
-        silver_df = read_parquet(uri=silver_uri)
-        upsert_src_silver_events(silver_df)
+        snapshot_id = artifact["snapshot_id"]
+        match_id = artifact["match_id"]
+        load_silver_to_postgres(match_id, snapshot_id)
 
 
-    run_stg_silver_events_dbt = BashOperator(
-        task_id="run_dbt_stg_silver_events",
+    build_dbt = BashOperator(
+        task_id="build_dbt",
         pool="dbt_writes",
         cwd="/opt/airflow/dbt/football_analytics",
         bash_command="""
@@ -266,26 +262,13 @@ def football_match_pipeline():
         """,
     )    
 
-    run_fact_gold_team_dbt = BashOperator(
-        task_id="run_dbt_fact_gold_team",
+    build_gold_facts = BashOperator(
+        task_id="build_gold_facts",
         pool="dbt_writes",
         cwd="/opt/airflow/dbt/football_analytics",
         bash_command="""
             dbt build \
-            --select fact_gold_team \
-            --target docker \
-            --profiles-dir /opt/airflow/dbt/football_analytics \
-            --vars '{"match_id": {{ ti.xcom_pull(task_ids="resolve_match_id") }}}'
-        """,
-    )
-
-    run_fact_gold_intervals_dbt = BashOperator(
-        task_id="run_dbt_fact_gold_intervals",
-        pool="dbt_writes",
-        cwd="/opt/airflow/dbt/football_analytics",
-        bash_command="""
-            dbt build \
-            --select fact_gold_intervals \
+            --select fact_gold_team fact_gold_intervals \
             --target docker \
             --profiles-dir /opt/airflow/dbt/football_analytics \
             --vars '{"match_id": {{ ti.xcom_pull(task_ids="resolve_match_id") }}}'
@@ -325,10 +308,6 @@ def football_match_pipeline():
     bronze_artifact = bronze(artifact)
     silver_artifact = silver(bronze_artifact)
     loaded_silver_events = load_silver_events_to_db(silver_artifact)
-    loaded_silver_events >> run_stg_silver_events_dbt 
-    run_stg_silver_events_dbt >> [run_fact_gold_team_dbt, run_fact_gold_intervals_dbt]
-    [run_fact_gold_team_dbt, run_fact_gold_intervals_dbt] >> reports()
-    
-
+    loaded_silver_events >> build_dbt >> build_gold_facts >> reports()
 
 football_match_pipeline()
