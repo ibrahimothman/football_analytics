@@ -1,9 +1,6 @@
 import logging
 from datetime import timedelta
 
-import requests
-
-
 import pendulum
 from airflow.sdk import (
     dag,
@@ -17,17 +14,8 @@ from airflow.sdk import (
 
 from airflow.providers.standard.operators.bash import BashOperator
 
-
-
-from src.ingest_match import ingest_match
-from src.build_bronze import build_bronze
-from src.build_silver import build_silver
-from src.generate_reports import generate_reports
 from src.observability.airflow_callbacks import dag_failure_callback, task_failure_callback, task_retry_callback
-from src.observability.stage_observer import observe_stage
-from src.storage.storage_store import count_parquet_rows
-from src.serving.load_silver_events import load_silver_to_postgres
-from src.storage.storage_store import read_parquet
+
 
 
 logger = logging.getLogger("airflow.task")
@@ -43,6 +31,8 @@ class IngestRetryPolicy(RetryPolicy):
         max_tries,
         context=None,
     ):
+        import requests
+
         # Network timeout
         if isinstance(
             exception,
@@ -123,10 +113,6 @@ class IngestRetryPolicy(RetryPolicy):
 
 INGEST_RETRY_POLICY = (IngestRetryPolicy())    
 
-
-
-
-
 @dag(
     dag_id="football_match_pipeline",
     schedule=None,
@@ -145,7 +131,8 @@ INGEST_RETRY_POLICY = (IngestRetryPolicy())
             minimum=1,
         ),
     },
-    max_active_runs=5,
+    max_active_runs=1,
+    max_active_tasks=1, 
     on_failure_callback=dag_failure_callback,
     default_args={
         "on_failure_callback": task_failure_callback,
@@ -175,6 +162,8 @@ def football_match_pipeline():
         retry_policy=INGEST_RETRY_POLICY,
     )
     def ingest(match_id: int) -> dict:
+        from src.ingest_match import ingest_match
+
         logger.info(f"Starting to ingest match {match_id} from StatsBomb Open Data")
         artifact = ingest_match(match_id)
 
@@ -191,6 +180,10 @@ def football_match_pipeline():
 
     @task(task_id="bronze")
     def bronze(artifact: dict) -> dict:
+        from src.build_bronze import build_bronze
+        from src.observability.stage_observer import observe_stage
+        from src.storage.storage_store import count_parquet_rows
+
         context = get_current_context()
         task_instance = context["ti"]
 
@@ -218,6 +211,9 @@ def football_match_pipeline():
 
     @task(task_id="silver")
     def silver(artifact: dict) -> str:
+        from src.build_silver import build_silver
+        from src.observability.stage_observer import observe_stage
+
         bronze_uri = artifact["bronze_uri"]
 
         context = get_current_context()
@@ -244,6 +240,8 @@ def football_match_pipeline():
             
     @task(task_id="load_silver_events_to_db")
     def load_silver_events_to_db(artifact: dict) -> None:
+        from src.serving.load_silver_events import load_silver_to_postgres
+
         snapshot_id = artifact["snapshot_id"]
         match_id = artifact["match_id"]
         load_silver_to_postgres(match_id, snapshot_id)
@@ -279,6 +277,8 @@ def football_match_pipeline():
     @task(task_id="reports")
     def reports() -> int:
         """Generate reports after both gold tasks complete."""
+        from src.generate_reports import generate_reports
+        from src.observability.stage_observer import observe_stage
 
         context = get_current_context()
         task_instance = context["ti"]
