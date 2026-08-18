@@ -50,6 +50,7 @@ x-airflow-common: &airflow-common
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
   #image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.3.0}
   build: .
+  image: football-airflow:3.3.0
   env_file:
     - ${ENV_FILE_PATH:-.env}
   environment: &airflow-common-env
@@ -93,6 +94,12 @@ x-airflow-common: &airflow-common
     FOOTBALL_DB_NAME: football
     FOOTBALL_DB_USER: football
     FOOTBALL_DB_PASSWORD: ${FOOTBALL_DB_PASSWORD}
+
+    # OpenLineage and Marquez
+    AIRFLOW__OPENLINEAGE__NAMESPACE: football-airflow
+
+    AIRFLOW__OPENLINEAGE__TRANSPORT: >-
+      {"type":"http","url":"http://host.docker.internal:5000","endpoint":"api/v1/lineage"}
 
     # other Airflow settings
     PYTHONPATH: /opt/airflow
