@@ -131,3 +131,6 @@ FOOTBALL_DB_USER = os.getenv(
 FOOTBALL_DB_PASSWORD = os.getenv(
     "FOOTBALL_DB_PASSWORD",
 )
+
+# Iceberg
+ICEBERG_WAREHOUSE = DATA_ROOT / "iceberg_warehouse"
