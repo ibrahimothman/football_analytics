@@ -17,6 +17,15 @@ from src.storage.storage_store import (
 )
 from src.transforms.silver import bronze_to_silver
 
+from openlineage.client.event_v2 import (
+    InputDataset,
+    OutputDataset,
+)
+
+from airflow.providers.openlineage.api.datasets import (
+    emit_dataset_lineage,
+)
+
 MODEL_PATH = MODELS_ROOT / "xt" / "open_xt_12x8_v1.json"
 
 logger = logging.getLogger(__name__)
@@ -104,6 +113,25 @@ def build_silver(
     result = load_into_silver_table(
         match_id=match_id,
         arrow_table=pa.Table.from_pandas(silver_df),
+    )
+
+    emit_dataset_lineage(
+        inputs=[
+            InputDataset(
+                namespace="file",
+                name=str(bronze_uri),
+                facets={},
+                inputFacets={},
+            )
+        ],
+        outputs=[
+            OutputDataset(
+                namespace="iceberg",
+                name="football.silver_events",
+                facets={},
+                outputFacets={},
+            )
+        ],
     )
 
     return result

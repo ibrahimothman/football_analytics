@@ -4,7 +4,13 @@ from src.storage.database import (
     get_db_connection,
 )
 from src.storage.iceberg import load_table
-
+from openlineage.client.event_v2 import (
+    InputDataset,
+    OutputDataset,
+)
+from airflow.providers.openlineage.api.datasets import (
+    emit_dataset_lineage,
+)
 
 copy_sql = """
     COPY serving.src_silver_events (
@@ -73,6 +79,25 @@ def load_silver_to_postgres(match_id: int, snapshot_id: int):
     silver_df = silver_arrow_table.to_pandas(types_mapper=pd.ArrowDtype)
 
     upsert_src_silver_events(silver_df)
+
+    emit_dataset_lineage(
+        inputs=[
+            InputDataset(
+                namespace="iceberg",
+                name="football.silver_events",
+                facets={},
+                inputFacets={},
+            )
+        ],
+        outputs=[
+            OutputDataset(
+                namespace="postgres://postgres:5432",
+                name="football.serving.src_silver_events",
+                facets={},
+                outputFacets={},
+            )
+        ],
+    )
 
 def upsert_src_silver_events(silver_df: pd.DataFrame):
     match_id = silver_df["match_id"].iloc[0]
