@@ -7,12 +7,15 @@ import logging
 
 import json
 
+import pyarrow as pa
+
+from src.config.settings import MODELS_ROOT
+
+from src.storage.iceberg import load_table
 from src.storage.storage_store import (
     read_parquet,
-    write_parquet,
 )
 from src.transforms.silver import bronze_to_silver
-from src.config.settings import MODELS_ROOT
 
 MODEL_PATH = MODELS_ROOT / "xt" / "open_xt_12x8_v1.json"
 
@@ -54,7 +57,37 @@ def load_xt_grid() -> list[list[float]]:
         )
 
     return grid
-    
+
+
+def load_into_silver_table(
+    match_id: int,
+    arrow_table: pa.Table,
+) -> dict:
+   
+    table_name = (
+        "football.silver_events"
+    )
+
+    table = load_table(
+        table_name=table_name,
+        schema=arrow_table.schema,
+    )
+
+    table.overwrite(
+        arrow_table,
+        overwrite_filter=f"match_id = {match_id}",
+        snapshot_properties={
+            "match_id": str(match_id),
+        },
+    )
+
+    return {
+        "table_name": table_name,
+        "match_id": match_id,
+        "snapshot_id": table.current_snapshot().snapshot_id,
+    }
+
+
 def build_silver(
     match_id: int,
     bronze_uri: str,
@@ -68,27 +101,12 @@ def build_silver(
     pitch_size = (PITCH_LENGTH, PITCH_WIDTH)
     silver_df = bronze_to_silver(bronze_df, xt_grid, pitch_size)
 
-    file_hash = (
-        silver_df["file_hash"]
-        .iloc[0]
+    result = load_into_silver_table(
+        match_id=match_id,
+        arrow_table=pa.Table.from_pandas(silver_df),
     )
 
-    key = f"silver/match_id={match_id}/events_{file_hash[:12]}.parquet"
-
-    silver_uri = write_parquet(
-        key=key,
-        df=silver_df,
-    )
-
-    logger.info(
-        "silver_build_succeeded",
-        extra={
-            "rows_out": len(silver_df),
-            "output_uri": silver_uri,
-        },
-    )
-
-    return silver_uri
+    return result
 
 
 def main() -> None:
