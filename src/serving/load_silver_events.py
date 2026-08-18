@@ -3,6 +3,7 @@ import pandas as pd
 from src.storage.database import (
     get_db_connection,
 )
+from src.storage.iceberg import load_table
 
 
 copy_sql = """
@@ -58,6 +59,20 @@ def _to_db(value):
         return None
     return value
 
+
+def load_silver_to_postgres(match_id: int, snapshot_id: int):
+    table = load_table(
+        table_name="football.silver_events",
+    )
+
+    silver_arrow_table = table.scan(
+        snapshot_id=snapshot_id,
+        row_filter=f"match_id = {match_id}",
+    ).to_arrow()
+
+    silver_df = silver_arrow_table.to_pandas(types_mapper=pd.ArrowDtype)
+
+    upsert_src_silver_events(silver_df)
 
 def upsert_src_silver_events(silver_df: pd.DataFrame):
     match_id = silver_df["match_id"].iloc[0]
