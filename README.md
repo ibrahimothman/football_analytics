@@ -1,5 +1,9 @@
 ## 📚 Table of Contents
 
+[**README**](README.md) ·
+[**Architecture**](docs/architecture.md) ·
+[**Architecture Decisions**](docs/adr/README.md)
+
 * [Architecture](#architecture)
 * [Pipeline Design](#pipeline-design)
 * [Data Layers](#data-layers)
