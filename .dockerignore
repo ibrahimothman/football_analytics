@@ -1,7 +1,7 @@
 .git
 logs
 data
-reports
+/reports
 dbt/football_analytics/target
 __pycache__
 .venv
