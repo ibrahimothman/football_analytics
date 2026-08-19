@@ -41,7 +41,7 @@ Thumbs.db
 
 # Runtime data and generated report outputs
 data/
-reports/
+/reports/
 
 # Airflow runtime (keep dags/ and custom plugins tracked)
 logs/
