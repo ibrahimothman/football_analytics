@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 from src.config.settings import REPORTS_ROOT
 
+from src.reports.colors import ordered_teams, team_color_map
+
 
 REPORTS_DIR = REPORTS_ROOT
 
@@ -60,6 +62,9 @@ def generate_xt_momentum(
         .dropna()
         .unique()
     )
+
+    teams = ordered_teams(teams)
+    colors = team_color_map(teams)
 
     if len(teams) != 2:
         raise ValueError(
@@ -134,6 +139,7 @@ def generate_xt_momentum(
         team_a["positive_xt"],
         width=0.8,
         label=teams[0],
+        color=colors[teams[0]],
     )
 
     # Team B has positive xT too.
@@ -143,6 +149,7 @@ def generate_xt_momentum(
         -team_b["positive_xt"],
         width=0.8,
         label=teams[1],
+        color=colors[teams[1]],
     )
 
     # Zero baseline.

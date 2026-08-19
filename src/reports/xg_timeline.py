@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 from src.config.settings import REPORTS_ROOT
 
+from src.reports.colors import ordered_teams, team_color_map
 
 REPORTS_DIR = REPORTS_ROOT
 
@@ -75,6 +76,9 @@ def generate_xg_timeline(
         .unique()
     )
 
+    teams = ordered_teams(teams)
+    colors = team_color_map(teams)
+
     if len(teams) != 2:
         raise ValueError(
             "Expected exactly two teams."
@@ -104,12 +108,14 @@ def generate_xg_timeline(
             *team_shots["cumulative_xg"].tolist(),
         ]
 
+
         ax.step(
             x_values,
             y_values,
             where="post",
             linewidth=2,
             label=team,
+            color=colors[team],
         )
 
         # Mark shot moments: hollow misses vs solid goals.
@@ -128,7 +134,7 @@ def generate_xg_timeline(
                 + 20
             ),
             facecolors="none",
-            edgecolors="C0" if team == teams[0] else "C1",
+            edgecolors=colors[team],
             linewidths=1.5,
             alpha=0.6,
             zorder=3,
@@ -142,7 +148,7 @@ def generate_xg_timeline(
                 + 80
             ),
             marker="*",
-            color="C0" if team == teams[0] else "C1",
+            color=colors[team],
             edgecolors="black",
             linewidths=0.8,
             alpha=0.95,
