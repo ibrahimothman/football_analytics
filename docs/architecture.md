@@ -1,5 +1,9 @@
 # Football Data Platform — Architecture
 
+[**README**](README.md) ·
+[**Architecture**](docs/architecture.md) ·
+[**Architecture Decisions**](docs/adr/README.md)
+
 ## 1. Purpose
 
 This document describes the final technical architecture of the Football Data Engineering Pipeline.
