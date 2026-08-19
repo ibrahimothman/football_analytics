@@ -1,8 +1,8 @@
 # Football Data Platform — Architecture
 
 [**README**](../README.md) ·
-[**Architecture**](../architecture.md) ·
-[**Architecture Decisions**](README.md)
+[**Architecture**](architecture.md) ·
+[**Architecture Decisions**](adr/README.md)
 
 ## 1. Purpose
 
